@@ -1,0 +1,8 @@
+{
+ "args": [
+  "plm100"
+ ],
+ "sh": false,
+ "env": {},
+ "port": "JTAG"
+}
