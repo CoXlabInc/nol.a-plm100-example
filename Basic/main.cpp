@@ -5,7 +5,7 @@
 Timer ledTimer;
 Timer printTimer;
 
-SerialPort &Serial2 = enableSerialUCA0();
+SerialPort *Serial2;
 
 static void ledOffTask(void *args);
 
@@ -28,14 +28,20 @@ static void printTask(void *args) {
   uint8_t month, day, hour, minute, second;
   System.getDateTime(&year, &month, &day, &hour, &minute, &second);
   printf("Now: %u-%u-%u %02u:%02u:%02u\n", year, month, day, hour, minute, second);
-  printf("Supply voltage: %ld mV\n", getSupplyVoltage());
+  printf("Supply voltage: %ld mV\n", System.getSupplyVoltage());
 
-  Serial2.printf("[%lu usec] Timer works!\n", micros());
+  Serial2->printf("[%lu usec] Timer works!\n", micros());
+}
+
+static void buttonPressed() {
+  printf("[%lu usec] Button works!\n", micros());
 }
 
 void setup() {
   Serial.begin(115200);
-  Serial2.begin(57600);
+
+  Serial2 = System.enableSerialUCA0();
+  Serial2->begin(57600);
 
   printf("\n*** [PLM100] Basic Functions ***\n");
   System.setDateTime(2016, 7, 22, 10, 0, 0);
@@ -45,4 +51,7 @@ void setup() {
 
   printTimer.onFired(printTask, NULL);
   printTimer.startPeriodic(1000);
+
+  pinMode(GPIO5, INPUT);
+  attachInterrupt(GPIO5, buttonPressed, FALLING);
 }

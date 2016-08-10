@@ -8,7 +8,7 @@ static void sensorTemperatureRead(uint16_t val);
 static void sensorHumidityRequest(void *);
 static void sensorHumidityRead(uint16_t val);
 
-TwoWire &wire = getTwoWireInstance();
+TwoWire *wire;
 Timer ledTimer;
 Timer sensorTimer;
 HTU20D htu20d;
@@ -17,8 +17,9 @@ void setup(void) {
   Serial.begin(115200);
   printf("\n*** [PLM100] HTU20D Temperature & Humidity Sensor Test ***\n");
 
-  wire.begin();
-  htu20d.begin(wire);
+  wire = System.enableTwoWire();
+  wire->begin();
+  htu20d.begin(*wire);
   htu20d.onTemperatureReadDone(sensorTemperatureRead);
   htu20d.onHumidityReadDone(sensorHumidityRead);
 
