@@ -120,7 +120,7 @@ void setup() {
   Serial.begin(115200);
   Serial.printf("\n*** LoRaWAN Class A Example ***\n");
 
-  LoRaWAN = System.enableLoRaMac();
+  LoRaWAN = LoRaMac::CreateForKR917();
 
   LoRaWAN->begin(SX1276);
   LoRaWAN->onSendDone(eventLoRaWANSendDone);

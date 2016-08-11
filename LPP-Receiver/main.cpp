@@ -14,12 +14,10 @@ static void receivedProbe(uint16_t panId,
 static void ledOnTask(void *);
 static void ledOffTask(void *);
 
-uint8_t devId = 0;
 uint16_t node_id = 2;
 uint8_t node_ext_id[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0, 0};
 
-LPPMac &Lpp = getLPPInstance();
-
+LPPMac *Lpp;
 Timer ledTimer;
 
 void setup(void) {
@@ -35,16 +33,17 @@ void setup(void) {
   node_ext_id[6] = highByte(node_id);
   node_ext_id[7] = lowByte(node_id);
 
-  Lpp.begin(SX1276, 0x1234, 0xFFFF, node_ext_id);
-  Lpp.setProbePeriod(3000);
-  Lpp.setListenTimeout(3300);
-  Lpp.setTxTimeout(632);
-  Lpp.setRxTimeout(465);
-  Lpp.setRxWaitTimeout(30);
-  Lpp.setRadioAlwaysOn(true);
+  Lpp = LPPMac::Create();
+  Lpp->begin(SX1276, 0x1234, 0xFFFF, node_ext_id);
+  Lpp->setProbePeriod(3000);
+  Lpp->setListenTimeout(3300);
+  Lpp->setTxTimeout(632);
+  Lpp->setRxTimeout(465);
+  Lpp->setRxWaitTimeout(30);
+  Lpp->setRadioAlwaysOn(true);
 
-  Lpp.onReceive(received);
-  Lpp.onReceiveProbe(receivedProbe);
+  Lpp->onReceive(received);
+  Lpp->onReceiveProbe(receivedProbe);
 
   ledOnTask(NULL);
 }

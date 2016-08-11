@@ -1,6 +1,6 @@
 #include <cox.h>
 
-SerialPort &Serial2 = enableSerialUCA0();
+SerialPort *Serial2;
 IPv6Interface *ppp;
 Timer ledTimer;
 
@@ -31,9 +31,10 @@ void setup(void) {
   ip6_init(1, 0);
 
   // Initialize the PPP interface.
-  Serial2.begin(115200);
-  Serial2.listen();
-  ppp = enableIPv6PPPoS(Serial2);
+  Serial2 = System.enableSerialUCA0();
+  Serial2->begin(115200);
+  Serial2->listen();
+  ppp = enableIPv6PPPoS(*Serial2);
   ppp->begin();
   ppp->setStateNotifier(ip6_state_changed);
   ip6_start();

@@ -1,11 +1,11 @@
 #include <cox.h>
 
-SerialPort &Serial2 = enableSerialUCA0();
+SerialPort *Serial2;
 IPv6Interface *ppp;
 Timer ledTimer;
 bool booted = false;
 
-LPPMac &Lpp = getLPPInstance();
+LPPMac *Lpp;
 NoliterAPI &Noliter = enableNoliterLite();
 
 static void ledOffTask(void *args);
@@ -88,10 +88,11 @@ void setup(void) {
   ip6_init(1, 0);
 
   // Initialize the PPP interface.
-  Serial2.begin(115200);
-  Serial2.listen();
+  Serial2 = System.enableSerialUCA0();
+  Serial2->begin(115200);
+  Serial2->listen();
 
-  ppp = enableIPv6PPPoS(Serial2);
+  ppp = enableIPv6PPPoS(*Serial2);
   if (ppp) {
     ppp->begin();
     ppp->setStateNotifier(ip6_state_changed);
@@ -109,13 +110,14 @@ void setup(void) {
   SX1276.setTxPower(20);
   SX1276.setChannel(917500000);
 
-  Lpp.begin(SX1276, 0x1234, 0x0001, NULL);
-  Lpp.setProbePeriod(3000);
-  Lpp.setListenTimeout(3300);
-  Lpp.setTxTimeout(632);
-  Lpp.setRxTimeout(465);
-  Lpp.setRxWaitTimeout(30);
-  Lpp.setRadioAlwaysOn(true);
+  Lpp = LPPMac::Create();
+  Lpp->begin(SX1276, 0x1234, 0x0001, NULL);
+  Lpp->setProbePeriod(3000);
+  Lpp->setListenTimeout(3300);
+  Lpp->setTxTimeout(632);
+  Lpp->setRxTimeout(465);
+  Lpp->setRxWaitTimeout(30);
+  Lpp->setRadioAlwaysOn(true);
 
-  Lpp.onReceive(eventLppFrameReceived);
+  Lpp->onReceive(eventLppFrameReceived);
 }

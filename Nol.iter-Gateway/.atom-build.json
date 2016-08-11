@@ -4,5 +4,5 @@
  ],
  "sh": false,
  "env": {},
- "port": "JTAG"
+ "port": "None"
 }
