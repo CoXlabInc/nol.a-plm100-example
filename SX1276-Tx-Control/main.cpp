@@ -12,6 +12,8 @@ int8_t bw;
 int8_t txPower;
 bool iq;
 uint8_t syncword;
+uint32_t freq;
+bool packetMode;
 
 static void eventOnTxDone(void *ctx, bool success) {
   printf("[%lu us] Tx %s!\n", micros(), (success) ? "SUCCESS" : "FAIL");
@@ -43,12 +45,13 @@ static void sendTask(void *args) {
   sent++;
 }
 
-static void eventKeyboardInput(SerialPort &) {
+static void eventKeyStroke(SerialPort &) {
   reboot();
 }
 
 static void appStart() {
-  Serial.onReceive(eventKeyboardInput);
+  Serial.stopInput(); // to receive key stroke not string
+  Serial.onReceive(eventKeyStroke);
 
   /* All parameters are specified. */
   SX1276.begin();
@@ -68,14 +71,64 @@ static void appStart() {
     SX1276.setFdev(25000);
   }
 
-  SX1276.setChannel(917300000);
+  SX1276.setChannel(freq);
   SX1276.setTxPower(txPower);
-  SX1276.onTxDone(eventOnTxDone, NULL);
-  SX1276.wakeup();
-  SX1276.cca();
 
-  sendTimer.onFired(sendTask, NULL);
-  sendTimer.startPeriodic(5000);
+  if (packetMode) {
+    SX1276.onTxDone(eventOnTxDone, NULL);
+    SX1276.wakeup();
+
+    sendTimer.onFired(sendTask, NULL);
+    sendTimer.startPeriodic(5000);
+  } else {
+    SX1276.transmitCW(true);
+  }
+}
+
+static void inputPacketMode(SerialPort &);
+static void askPacketMode() {
+  printf("Select modme (0: packet, 1: CW) [0]:");
+  Serial.onReceive(inputPacketMode);
+  Serial.inputKeyboard(buf, sizeof(buf));
+}
+
+static void inputPacketMode(SerialPort &) {
+  if (strlen(buf) == 0 || strcmp(buf, "0") == 0) {
+    printf("* Packet mode selected.\n");
+    packetMode = true;
+  } else if (strcmp(buf, "1") == 0) {
+    printf("* Continuous wave mode selected.\n");
+    packetMode = false;
+  } else {
+    printf("* Unknown mode\n");
+    askPacketMode();
+    return;
+  }
+
+  appStart();
+}
+
+static void inputFrequency(SerialPort &);
+static void askFrequency() {
+  printf("Enter frequency in unit of Hz [917100000]:");
+  Serial.onReceive(inputFrequency);
+  Serial.inputKeyboard(buf, sizeof(buf));
+}
+
+static void inputFrequency(SerialPort &) {
+  if (strlen(buf) == 0) {
+    freq = 917100000;
+  } else {
+    freq = (uint32_t) strtoul(buf, NULL, 0);
+    if (freq == 0) {
+      printf("* Invalid frequency.\n");
+      askFrequency();
+      return;
+    }
+  }
+
+  printf("* Frequency: %lu\n", freq);
+  askPacketMode();
 }
 
 static void inputSyncword(SerialPort &);
@@ -100,7 +153,7 @@ static void inputSyncword(SerialPort &) {
   }
 
   printf("* Syncword: 0x%02X\n", syncword);
-  appStart();
+  askFrequency();
 }
 
 static void inputIQ(SerialPort &);

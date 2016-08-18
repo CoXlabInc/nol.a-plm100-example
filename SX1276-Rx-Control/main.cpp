@@ -10,8 +10,10 @@ int8_t cr;
 int8_t bw;
 bool iq;
 uint8_t syncword;
+uint32_t freq;
 
 static void printRxDone(void *args) {
+  static uint16_t success = 0;
   RadioPacket *rxFrame = (RadioPacket *) args;
 
   printf("Rx is done!: RSSI:%d dB, CRC:%s, Length:%u, (",
@@ -21,13 +23,14 @@ static void printRxDone(void *args) {
   uint16_t i;
   for (i = 0; i < rxFrame->len; i++)
     printf("%02X ", rxFrame->buf[i]);
-  printf("\b)\n");
+  printf("\b), # of Rx:%u\n", (rxFrame->crc_ok) ? ++success : success);
 
   delete rxFrame;
 }
 
 static void eventOnRxDone(void *ctx) {
   RadioPacket *rxFrame = new RadioPacket(125);
+
   if (!rxFrame) {
     printf("Out of memory to read frame\n");
     SX1276.flushBuffer();
@@ -55,16 +58,16 @@ static void eventOnRxStarted(void *ctx) {
 }
 
 static void taskRSSI(void *args) {
-  ledToggle(0);
   printf("[%lu us] RSSI: %d dB\n", micros(), SX1276.getRssi());
 }
 
-static void eventKeyboardInput(SerialPort &) {
+static void eventKeyStroke(SerialPort &) {
   reboot();
 }
 
 static void appStart() {
-  Serial.onReceive(eventKeyboardInput);
+  Serial.stopInput(); // to receive key stroke not string
+  Serial.onReceive(eventKeyStroke);
 
   /* All parameters are specified. */
   SX1276.begin();
@@ -83,7 +86,7 @@ static void appStart() {
     SX1276.setFdev(25000);
   }
 
-  SX1276.setChannel(917300000);
+  SX1276.setChannel(freq);
   SX1276.onRxStarted(eventOnRxStarted, NULL);
   SX1276.onRxDone(eventOnRxDone, NULL);
   SX1276.onChannelBusy(eventOnChannelBusy, NULL);
@@ -91,7 +94,30 @@ static void appStart() {
   SX1276.cca();
 
   tRSSI.onFired(taskRSSI, NULL);
-  tRSSI.startPeriodic(1000);
+  //tRSSI.startPeriodic(1000);
+}
+
+static void inputFrequency(SerialPort &);
+static void askFrequency() {
+  printf("Enter frequency in unit of Hz [917100000]:");
+  Serial.onReceive(inputFrequency);
+  Serial.inputKeyboard(buf, sizeof(buf));
+}
+
+static void inputFrequency(SerialPort &) {
+  if (strlen(buf) == 0) {
+    freq = 917100000;
+  } else {
+    freq = (uint32_t) strtoul(buf, NULL, 0);
+    if (freq == 0) {
+      printf("* Invalid frequency.\n");
+      askFrequency();
+      return;
+    }
+  }
+
+  printf("* Frequency: %lu\n", freq);
+  appStart();
 }
 
 static void inputSyncword(SerialPort &);
@@ -116,7 +142,7 @@ static void inputSyncword(SerialPort &) {
   }
 
   printf("* Syncword: 0x%02X\n", syncword);
-  appStart();
+  askFrequency();
 }
 
 static void inputIQ(SerialPort &);
@@ -252,15 +278,16 @@ static void inputModem(SerialPort &) {
 
 void setup(void) {
   Serial.begin(115200);
-  printf("\n*** SX1276 Low-Level Rx Control Example ***\n");
+  printf("\n*** [PLM100] SX1276 Low-Level Rx Control Example ***\n");
+
+  Serial.listen();
 
 #if 1
-  Serial.listen();
   askModem();
 #else
   modem = 0;
   sf = 12;
-  cr = 4;
+  cr = 1;
   bw = 0;
   iq = true;
   syncword = 0x12;
