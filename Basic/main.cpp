@@ -34,7 +34,17 @@ static void printTask(void *args) {
 }
 
 static void buttonPressed() {
+  ledToggle(0);
   printf("[%lu usec] Button works!\n", micros());
+
+  if (Serial.isBegan()) {
+    printf("* Serial is turned off.\n");
+    Serial.end();
+  } else {
+    Serial.begin(115200);
+    printf("* Serial is turned on.\n");
+  }
+  ledToggle(0);
 }
 
 void setup() {
