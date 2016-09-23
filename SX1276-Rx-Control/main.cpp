@@ -192,34 +192,6 @@ static void inputBW(SerialPort &) {
   askIQ();
 }
 
-static void inputCR(SerialPort &);
-static void askCR() {
-  printf("Set coding rate (1:4/5, 2:4/6, 3:4/7, 4:4/8) [1]:");
-  Serial.onReceive(inputCR);
-  Serial.inputKeyboard(buf, sizeof(buf));
-}
-
-static void inputCR(SerialPort &) {
-  if (strlen(buf) == 0 || strcmp(buf, "1") == 0) {
-    printf("* (4/5) selected.\n");
-    cr = 1;
-  } else if (strcmp(buf, "2") == 0) {
-    printf("* (4/6) selected.\n");
-    cr = 2;
-  } else if (strcmp(buf, "3") == 0) {
-    printf("* (4/7) selected.\n");
-    cr = 3;
-  } else if (strcmp(buf, "4") == 0) {
-    printf("* (4/8) selected.\n");
-    cr = 4;
-  } else {
-    printf("* Unknown coding rate\n");
-    askCR();
-    return;
-  }
-  askBW();
-}
-
 static void inputSF(SerialPort &);
 static void askSF() {
   printf("Set SF (7, 8, 9, 10, 11, 12) [7]:");
@@ -251,7 +223,7 @@ static void inputSF(SerialPort &) {
     askSF();
     return;
   }
-  askCR();
+  askBW();
 }
 
 static void inputModem(SerialPort &);

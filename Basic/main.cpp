@@ -12,13 +12,13 @@ static void ledOffTask(void *args);
 static void ledOnTask(void *args) {
   ledTimer.onFired(ledOffTask, NULL);
   ledTimer.startOneShot(10);
-  ledOn(0);
+  digitalWrite(GPIO1, HIGH);
 }
 
 static void ledOffTask(void *args) {
   ledTimer.onFired(ledOnTask, NULL);
   ledTimer.startOneShot(990);
-  ledOff(0);
+  digitalWrite(GPIO1, LOW);
 }
 
 static const char *weekday[] = { "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
@@ -44,7 +44,7 @@ static void eventDateTimeAlarm() {
 }
 
 static void buttonPressed() {
-  ledToggle(0);
+  digitalToggle(GPIO1);
   printf("[%lu usec] Button works!\n", micros());
 
   if (Serial.isBegan()) {
@@ -54,7 +54,7 @@ static void buttonPressed() {
     Serial.begin(115200);
     printf("* Serial is turned on.\n");
   }
-  ledToggle(0);
+  digitalToggle(GPIO1);
 }
 
 void setup() {
@@ -77,7 +77,7 @@ void setup() {
                           0xFF,                       // not supported
                           RTCCalendar::UNKNOWNDAY);   // don't care
 
-  ledTimer.onFired(ledOnTask, NULL);
+  ledTimer.onFired(ledOffTask, NULL);
   ledTimer.startOneShot(1000);
 
   printTimer.onFired(printTask, NULL);
@@ -85,4 +85,7 @@ void setup() {
 
   pinMode(GPIO5, INPUT);
   attachInterrupt(GPIO5, buttonPressed, FALLING);
+
+  pinMode(GPIO1, OUTPUT);
+  digitalWrite(GPIO1, HIGH);
 }

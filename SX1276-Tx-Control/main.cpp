@@ -53,6 +53,8 @@ static void appStart() {
   Serial.stopInput(); // to receive key stroke not string
   Serial.onReceive(eventKeyStroke);
 
+  //System.enablePaBoost(true);
+
   /* All parameters are specified. */
   SX1276.begin();
 
@@ -180,26 +182,25 @@ static void inputIQ(SerialPort &) {
 
 static void inputTxPower(SerialPort &);
 static void askTxPower() {
-  printf("Set Tx power (1:-1, 2:10, 3:14 dBm) [1]:");
+  printf("Set Tx power (-1 ~ 20) [-1]:");
   Serial.onReceive(inputTxPower);
   Serial.inputKeyboard(buf, sizeof(buf));
 }
 
 static void inputTxPower(SerialPort &) {
-  if (strlen(buf) == 0 || strcmp(buf, "1") == 0) {
-    printf("* 1:-1 dBm selected.\n");
+  if (strlen(buf) == 0) {
     txPower = -1;
-  } else if (strcmp(buf, "2") == 0) {
-    printf("* 2:10 dBm selected.\n");
-    txPower = 10;
-  } else if (strcmp(buf, "3") == 0) {
-    printf("* 3:14 dBm selected.\n");
-    txPower = 14;
-  } else {
+  }
+
+  txPower = (uint8_t) strtol(buf, NULL, 0);
+  printf("* %d dBm selected.\n", txPower);
+
+  if (txPower < -1 || txPower > 20) {
     printf("* Unknown Tx power.\n");
     askTxPower();
     return;
   }
+
   askIQ();
 }
 
@@ -315,7 +316,7 @@ static void inputModem(SerialPort &) {
 
 void setup(void) {
   Serial.begin(115200);
-  printf("*** SX1276 Low-Level Tx Control Example ***\n");
+  printf("*** [PLM100] SX1276 Low-Level Tx Control Example ***\n");
 
 #if 1
   Serial.listen();
