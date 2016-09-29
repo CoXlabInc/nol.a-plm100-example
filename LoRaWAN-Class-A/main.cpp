@@ -118,7 +118,7 @@ static void eventLoRaWANReceive(LoRaMac &, const LoRaMacFrame *frame) {
 
 void setup() {
   Serial.begin(115200);
-  Serial.printf("\n*** LoRaWAN Class A Example ***\n");
+  Serial.printf("\n*** [PLM100] LoRaWAN Class A Example ***\n");
 
   LoRaWAN = LoRaMac::CreateForKR917();
 
@@ -136,6 +136,7 @@ void setup() {
   timerSend.startPeriodic(10000);
 #else
   printf("Trying to join\n");
+  LoRaWAN->setNetworkJoined(true);  /* true: RealAppKey join, false: PseudoAppKey join */
   LoRaWAN->beginJoining(devEui, appEui, appKey);
 #endif
 }
