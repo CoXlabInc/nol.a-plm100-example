@@ -57,8 +57,18 @@ static void buttonPressed() {
   digitalToggle(GPIO1);
 }
 
+static void eventSerialRx(SerialPort &) {
+  while (Serial.available() > 0) {
+    if (Serial.read() == 'q') {
+      reboot();
+    }
+  }
+}
+
 void setup() {
   Serial.begin(115200);
+  Serial.onReceive(eventSerialRx);
+  Serial.listen();
 
   Serial2 = System.enableSerialUCA0();
   Serial2->begin(57600);
