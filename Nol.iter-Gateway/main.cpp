@@ -13,15 +13,23 @@ static void ledOffTask(void *args);
 static void ledOnTask(void *args) {
   ledTimer.onFired(ledOffTask, NULL);
   ledTimer.startOneShot(10);
-  ledOn(0);
+  digitalWrite(GPIO1, HIGH);
+
+  if (!booted) {
+    digitalToggle(GPIO2);
+  }
 }
 
 static void ledOffTask(void *args) {
   ledTimer.onFired(ledOnTask, NULL);
   ledTimer.startOneShot(990);
-  ledOff(0);
+  digitalWrite(GPIO1, LOW);
+
   if (booted) {
+    digitalWrite(GPIO2, HIGH);
+#if 0
     Noliter.send("N0", "\"test\":\"1\"");
+#endif
   }
 }
 
@@ -61,7 +69,7 @@ static void eventLppFrameReceived(IEEE802_15_4Mac &radio,
   }
   printf("* LPP RX: %s,RSSI(%d),LQI(%d),%02x %02x~ (length:%u)\n",
           id,
-          frame->rssi,
+          frame->power,
           frame->lqi,
           payload[0],
           payload[1],
@@ -120,4 +128,10 @@ void setup(void) {
   Lpp->setRadioAlwaysOn(true);
 
   Lpp->onReceive(eventLppFrameReceived);
+
+  pinMode(GPIO1, OUTPUT);
+  digitalWrite(GPIO1, LOW);
+
+  pinMode(GPIO2, OUTPUT);
+  digitalWrite(GPIO2, LOW);
 }
