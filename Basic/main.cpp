@@ -13,6 +13,7 @@ static void ledOnTask(void *args) {
   ledTimer.onFired(ledOffTask, NULL);
   ledTimer.startOneShot(10);
   digitalWrite(GPIO1, HIGH);
+  digitalToggle(GPIO2);
 }
 
 static void ledOffTask(void *args) {
@@ -57,10 +58,13 @@ static void buttonPressed() {
   digitalToggle(GPIO1);
 }
 
-static void eventSerialRx(SerialPort &) {
-  while (Serial.available() > 0) {
-    if (Serial.read() == 'q') {
+static void eventSerialRx(SerialPort &p) {
+  while (p.available() > 0) {
+    char c = p.read();
+    if (c == 'q') {
       reboot();
+    } else {
+      p.write(c);
     }
   }
 }
@@ -72,6 +76,8 @@ void setup() {
 
   Serial2 = System.enableSerialUCA0();
   Serial2->begin(57600);
+  Serial2->onReceive(eventSerialRx);
+  Serial2->listen();
 
   printf("\n*** [PLM100] Basic Functions ***\n");
   System.setDateTime(2016, 8, 22, 10, 0, 0, RTCCalendar::MONDAY);
@@ -98,4 +104,6 @@ void setup() {
 
   pinMode(GPIO1, OUTPUT);
   digitalWrite(GPIO1, HIGH);
+  pinMode(GPIO2, OUTPUT);
+  digitalWrite(GPIO2, HIGH);
 }
