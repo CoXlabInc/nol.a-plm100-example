@@ -17,7 +17,7 @@ static void printRxDone(void *args) {
   RadioPacket *rxFrame = (RadioPacket *) args;
 
   printf("Rx is done!: RSSI:%d dB, CRC:%s, Length:%u, (",
-         rxFrame->rssi,
+         rxFrame->power,
          rxFrame->crc_ok ? "OK" : "FAIL",
          rxFrame->len);
   uint16_t i;
@@ -39,12 +39,12 @@ static void eventOnRxDone(void *ctx) {
 
   SX1276.readFrame(rxFrame);
   postTask(printRxDone, (void *) rxFrame);
-  SX1276.cca();
+  //SX1276.cca();
 }
 
 static void eventOnChannelBusy(void *ctx) {
   printf("Channel Busy!!\n");
-  SX1276.cca();
+  //SX1276.cca();
 }
 
 static void printRxStarted(void *args) {
@@ -91,7 +91,7 @@ static void appStart() {
   SX1276.onRxDone(eventOnRxDone, NULL);
   SX1276.onChannelBusy(eventOnChannelBusy, NULL);
   SX1276.wakeup();
-  SX1276.cca();
+  //SX1276.cca();
 
   tRSSI.onFired(taskRSSI, NULL);
   //tRSSI.startPeriodic(1000);

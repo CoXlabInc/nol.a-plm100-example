@@ -1,6 +1,5 @@
 #include <cox.h>
 
-SerialPort *Serial2;
 IPv6Interface *ppp;
 Timer ledTimer;
 bool booted = false;
@@ -67,10 +66,10 @@ static void eventLppFrameReceived(IEEE802_15_4Mac &radio,
             frame->srcAddr.id.s64[6],
             frame->srcAddr.id.s64[7]);
   }
-  printf("* LPP RX: %s,RSSI(%d),LQI(%d),%02x %02x~ (length:%u)\n",
+  printf("* LPP RX: %s,RSSI(%d),SNR(%d),%02x %02x~ (length:%u)\n",
           id,
           frame->power,
-          frame->lqi,
+          frame->meta.LoRa.snr,
           payload[0],
           payload[1],
           frame->getPayloadLength());
@@ -96,11 +95,10 @@ void setup(void) {
   ip6_init(1, 0);
 
   // Initialize the PPP interface.
-  Serial2 = System.enableSerialUCA0();
-  Serial2->begin(115200);
-  Serial2->listen();
+  Serial2.begin(115200);
+  Serial2.listen();
 
-  ppp = enableIPv6PPPoS(*Serial2);
+  ppp = enableIPv6PPPoS(Serial2);
   if (ppp) {
     ppp->begin();
     ppp->setStateNotifier(ip6_state_changed);

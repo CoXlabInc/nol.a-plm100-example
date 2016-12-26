@@ -20,7 +20,7 @@ static void receivedProbe(uint16_t panId,
 Timer ledTimer;
 Timer sendTimer;
 
-uint16_t node_id = 1;
+uint16_t node_id = 2;
 uint8_t node_ext_id[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0, 0};
 
 uint32_t sent = 0;
@@ -35,41 +35,43 @@ void setup(void) {
 
   SX1276.begin();
   SX1276.setDataRate(7);
-  SX1276.setCodingRate(4);
+  SX1276.setCodingRate(1);
   SX1276.setTxPower(14);
-  SX1276.setChannel(917300000);
+  SX1276.setChannel(922100000);
 
   node_ext_id[6] = highByte(node_id);
   node_ext_id[7] = lowByte(node_id);
 
   Lpp = LPPMac::Create();
-  Lpp->begin(SX1276, 0x1234, 0xFFFF, node_ext_id);
+  Lpp->begin(SX1276, 0x1234, node_id, node_ext_id);
   Lpp->setProbePeriod(3000);
   Lpp->setListenTimeout(3300);
   Lpp->setTxTimeout(632);
   Lpp->setRxTimeout(465);
   Lpp->setRxWaitTimeout(30);
-  //Lpp->setUseSITFirst(true);
+  Lpp->setUseSITFirst(true);
   Lpp->onSendDone(sendDone);
   Lpp->onReceiveProbe(receivedProbe);
-  Lpp->setProbePayload("test2", 5);
 
   postTask(ledOnTask, NULL);
 
   sendTimer.onFired(sendTask, NULL);
   sendTimer.startPeriodic(10000);
+
+  pinMode(GPIO1, OUTPUT);
+  digitalWrite(GPIO1, HIGH);
 }
 
 static void ledOnTask(void *) {
   ledTimer.onFired(ledOffTask, NULL);
   ledTimer.startOneShot(10);
-  ledOn(0);
+  digitalWrite(GPIO1, HIGH);
 }
 
 static void ledOffTask(void *) {
   ledTimer.onFired(ledOnTask, NULL);
   ledTimer.startOneShot(990);
-  ledOff(0);
+  digitalWrite(GPIO1, LOW);
 }
 
 static void sendDone(IEEE802_15_4Mac &radio,
@@ -110,7 +112,7 @@ static void sendTask(void *args) {
   uint8_t dest_ext_id[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0, 0};
   error_t err;
 
-  for (dst = 2; dst <= 2; dst++) {
+  for (dst = 1; dst <= 1; dst++) {
     frame = new IEEE802_15_4Frame(100);
     if (!frame) {
       printf("Not enough memory\n");
@@ -139,7 +141,6 @@ static void sendTask(void *args) {
 
     payload[0] = (sent >> 8);
     payload[1] = (sent & 0xff);
-
 
     err = Lpp->send(frame);
     if (err != ERROR_SUCCESS) {

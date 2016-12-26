@@ -5,8 +5,6 @@
 Timer ledTimer;
 Timer printTimer;
 
-SerialPort *Serial2;
-
 static void ledOffTask(void *args);
 
 static void ledOnTask(void *args) {
@@ -33,7 +31,7 @@ static void printTask(void *args) {
   printf("Now: %u-%u-%u %s %02u:%02u:%02u\n", year, month, day, weekday[dayOfWeek], hour, minute, second);
   printf("Supply voltage: %ld mV\n", System.getSupplyVoltage());
 
-  Serial2->printf("[%lu usec] Timer works!\n", micros());
+  Serial2.printf("[%lu usec] Timer works!\n", micros());
 }
 
 static void eventDateTimeAlarm() {
@@ -74,10 +72,9 @@ void setup() {
   Serial.onReceive(eventSerialRx);
   Serial.listen();
 
-  Serial2 = System.enableSerialUCA0();
-  Serial2->begin(57600);
-  Serial2->onReceive(eventSerialRx);
-  Serial2->listen();
+  Serial2.begin(57600);
+  Serial2.onReceive(eventSerialRx);
+  Serial2.listen();
 
   printf("\n*** [PLM100] Basic Functions ***\n");
   System.setDateTime(2016, 8, 22, 10, 0, 0, RTCCalendar::MONDAY);

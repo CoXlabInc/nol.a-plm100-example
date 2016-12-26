@@ -1,6 +1,5 @@
 #include <cox.h>
 
-SerialPort *Serial2;
 IPv6Interface *ppp;
 Timer ledTimer;
 
@@ -9,13 +8,13 @@ static void ledOffTask(void *args);
 static void ledOnTask(void *args) {
   ledTimer.onFired(ledOffTask, NULL);
   ledTimer.startOneShot(10);
-  ledOn(0);
+  digitalWrite(GPIO1, HIGH);
 }
 
 static void ledOffTask(void *args) {
   ledTimer.onFired(ledOnTask, NULL);
   ledTimer.startOneShot(990);
-  ledOff(0);
+  digitalWrite(GPIO1, LOW);
 }
 
 static void ip6_state_changed(IPv6Interface &ip6_inf, IPv6Interface::State_t state) {
@@ -31,10 +30,9 @@ void setup(void) {
   ip6_init(1, 0);
 
   // Initialize the PPP interface.
-  Serial2 = System.enableSerialUCA0();
-  Serial2->begin(115200);
-  Serial2->listen();
-  ppp = enableIPv6PPPoS(*Serial2);
+  Serial2.begin(115200);
+  Serial2.listen();
+  ppp = enableIPv6PPPoS(Serial2);
   ppp->begin();
   ppp->setStateNotifier(ip6_state_changed);
   ip6_start();
@@ -49,4 +47,7 @@ void setup(void) {
 
   ledTimer.onFired(ledOnTask, NULL);
   ledTimer.startOneShot(1000);
+
+  pinMode(GPIO1, OUTPUT);
+  digitalWrite(GPIO1, HIGH);
 }
