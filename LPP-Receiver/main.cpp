@@ -26,7 +26,7 @@ void setup(void) {
 
   SX1276.begin();
   SX1276.setDataRate(7);
-  SX1276.setCodingRate(1);
+  SX1276.setCodingRate(Radio::CR_4_5);
   SX1276.setTxPower(20);
   SX1276.setChannel(917300000);
 
@@ -45,19 +45,19 @@ void setup(void) {
   Lpp->onReceive(received);
   Lpp->onReceiveProbe(receivedProbe);
 
-  ledOnTask(NULL);
+  pinMode(GPIO1, OUTPUT);
 }
 
 static void ledOnTask(void *) {
   ledTimer.onFired(ledOffTask, NULL);
   ledTimer.startOneShot(10);
-  ledOn(0);
+  digitalWrite(GPIO1, HIGH);
 }
 
 static void ledOffTask(void *) {
   ledTimer.onFired(ledOnTask, NULL);
   ledTimer.startOneShot(990);
-  ledOff(0);
+  digitalWrite(GPIO1, LOW);
 }
 
 static void received(IEEE802_15_4Mac &radio, const IEEE802_15_4Frame *frame) {
@@ -80,9 +80,9 @@ static void received(IEEE802_15_4Mac &radio, const IEEE802_15_4Frame *frame) {
            frame->srcAddr.id.s64[6],
            frame->srcAddr.id.s64[7]);
   }
-  printf("RSSI(%d),\tLQI(%d)\t%02x %02x~ (length:%u)",
-         frame->rssi,
-         frame->lqi,
+  printf("RSSI(%d),\tSNR(%d)\t%02x %02x~ (length:%u)",
+         frame->power,
+         frame->meta.LoRa.snr,
          payload[0],
          payload[1],
          frame->getPayloadLength());

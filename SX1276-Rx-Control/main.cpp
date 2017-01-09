@@ -5,9 +5,9 @@ uint32_t tRxStarted;
 int16_t rssiRxStarted;
 char buf[20];
 int8_t modem;
-int8_t sf;
-int8_t cr;
-int8_t bw;
+Radio::LoRaSF_t sf;
+Radio::LoRaCR_t cr = Radio::CR_4_5;
+Radio::LoRaBW_t bw;
 bool iq;
 uint8_t syncword;
 uint32_t freq;
@@ -177,13 +177,13 @@ static void askBW() {
 static void inputBW(SerialPort &) {
   if (strlen(buf) == 0 || strcmp(buf, "0") == 0) {
     printf("* 125kHz selected.\n");
-    bw = 0;
+    bw = Radio::BW_125kHz;
   } else if (strcmp(buf, "1") == 0) {
     printf("* 250kHz selected.\n");
-    bw = 1;
+    bw = Radio::BW_250kHz;
   } else if (strcmp(buf, "2") == 0) {
     printf("* 500kHz selected.\n");
-    bw = 2;
+    bw = Radio::BW_500kHz;
   } else {
     printf("* Unknown SF\n");
     askBW();
@@ -202,22 +202,22 @@ static void askSF() {
 static void inputSF(SerialPort &) {
   if (strlen(buf) == 0 || strcmp(buf, "7") == 0) {
     printf("* SF7 selected.\n");
-    sf = 7;
+    sf = Radio::SF7;
   } else if (strcmp(buf, "8") == 0) {
     printf("* SF8 selected.\n");
-    sf = 8;
+    sf = Radio::SF8;
   } else if (strcmp(buf, "9") == 0) {
     printf("* SF9 selected.\n");
-    sf = 9;
+    sf = Radio::SF9;
   } else if (strcmp(buf, "10") == 0) {
     printf("* SF10 selected.\n");
-    sf = 10;
+    sf = Radio::SF10;
   } else if (strcmp(buf, "11") == 0) {
     printf("* SF11 selected.\n");
-    sf = 11;
+    sf = Radio::SF11;
   } else if (strcmp(buf, "12") == 0) {
     printf("* SF12 selected.\n");
-    sf = 12;
+    sf = Radio::SF12;
   } else {
     printf("* Unknown SF\n");
     askSF();
@@ -258,9 +258,9 @@ void setup(void) {
   askModem();
 #else
   modem = 0;
-  sf = 12;
-  cr = 1;
-  bw = 0;
+  sf = Radio::SF12;
+  cr = Radio::CR_4_5;
+  bw = Radio::BW_125kHz;
   iq = true;
   syncword = 0x12;
   appStart();

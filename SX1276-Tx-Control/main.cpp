@@ -6,9 +6,9 @@ uint32_t sent = 0;
 
 char buf[20];
 int8_t modem;
-int8_t sf;
-int8_t cr;
-int8_t bw;
+Radio::LoRaSF_t sf;
+Radio::LoRaCR_t cr;
+Radio::LoRaBW_t bw;
 int8_t txPower;
 bool iq;
 uint8_t syncword;
@@ -214,13 +214,13 @@ static void askBW() {
 static void inputBW(SerialPort &) {
   if (strlen(buf) == 0 || strcmp(buf, "0") == 0) {
     printf("* 125kHz selected.\n");
-    bw = 0;
+    bw = Radio::BW_125kHz;
   } else if (strcmp(buf, "1") == 0) {
     printf("* 250kHz selected.\n");
-    bw = 1;
+    bw = Radio::BW_250kHz;
   } else if (strcmp(buf, "2") == 0) {
     printf("* 500kHz selected.\n");
-    bw = 2;
+    bw = Radio::BW_500kHz;
   } else {
     printf("* Unknown SF\n");
     askBW();
@@ -239,16 +239,16 @@ static void askCR() {
 static void inputCR(SerialPort &) {
   if (strlen(buf) == 0 || strcmp(buf, "1") == 0) {
     printf("* (4/5) selected.\n");
-    cr = 1;
+    cr = Radio::CR_4_5;
   } else if (strcmp(buf, "2") == 0) {
     printf("* (4/6) selected.\n");
-    cr = 2;
+    cr = Radio::CR_4_6;
   } else if (strcmp(buf, "3") == 0) {
     printf("* (4/7) selected.\n");
-    cr = 3;
+    cr = Radio::CR_4_7;
   } else if (strcmp(buf, "4") == 0) {
     printf("* (4/8) selected.\n");
-    cr = 4;
+    cr = Radio::CR_4_8;
   } else {
     printf("* Unknown coding rate\n");
     askCR();
@@ -267,22 +267,22 @@ static void askSF() {
 static void inputSF(SerialPort &) {
   if (strlen(buf) == 0 || strcmp(buf, "7") == 0) {
     printf("* SF7 selected.\n");
-    sf = 7;
+    sf = Radio::SF7;
   } else if (strcmp(buf, "8") == 0) {
     printf("* SF8 selected.\n");
-    sf = 8;
+    sf = Radio::SF8;
   } else if (strcmp(buf, "9") == 0) {
     printf("* SF9 selected.\n");
-    sf = 9;
+    sf = Radio::SF9;
   } else if (strcmp(buf, "10") == 0) {
     printf("* SF10 selected.\n");
-    sf = 10;
+    sf = Radio::SF10;
   } else if (strcmp(buf, "11") == 0) {
     printf("* SF11 selected.\n");
-    sf = 11;
+    sf = Radio::SF11;
   } else if (strcmp(buf, "12") == 0) {
     printf("* SF12 selected.\n");
-    sf = 12;
+    sf = Radio::SF12;
   } else {
     printf("* Unknown SF\n");
     askSF();
@@ -324,9 +324,9 @@ void setup(void) {
 #else
   modem = 0;
   txPower = 14;
-  cr = 4;
-  sf = 12;
-  bw = 0;
+  cr = Radio::CR_4_8;
+  sf = Radio::SF12;
+  bw = Radio::BW_125kHz;
   iq = true;
   syncword = 0x12;
   appStart();
