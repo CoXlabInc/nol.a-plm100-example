@@ -16,8 +16,9 @@ static void printRxDone(void *args) {
   static uint16_t success = 0;
   RadioPacket *rxFrame = (RadioPacket *) args;
 
-  printf("Rx is done!: RSSI:%d dB, CRC:%s, Length:%u, (",
+  printf("Rx is done!: RSSI:%d dB, SNR:%d, CRC:%s, Length:%u, (",
          rxFrame->power,
+         rxFrame->meta.LoRa.snr,
          rxFrame->crc_ok ? "OK" : "FAIL",
          rxFrame->len);
   uint16_t i;
