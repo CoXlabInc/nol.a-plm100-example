@@ -17,6 +17,20 @@ static void ledOffTask(void *args) {
   digitalWrite(GPIO1, LOW);
 }
 
+static void EventDatagramReceived(IPv6Interface &input,
+                                   const IP6_ADDRESS *srcAddr,
+                                   const IP6_ADDRESS *dstAddr,
+                                   uint16_t srcPort,
+                                   uint16_t dstPort,
+                                   const uint8_t *msg,
+                                   uint16_t len) {
+  printf("* Datagram received:");
+  for (uint16_t i = 0; i < len; i++) {
+    printf(" %02X", msg[i]);
+  }
+  printf("\n");
+}
+
 static void ip6_state_changed(IPv6Interface &ip6_inf, IPv6Interface::State_t state) {
   printf("IPv6 iface 'ppp0': State changed to %s\n",
          ip6_state_string(state));
@@ -24,7 +38,7 @@ static void ip6_state_changed(IPv6Interface &ip6_inf, IPv6Interface::State_t sta
 
 void setup(void) {
   Serial.begin(115200);
-  printf("\n\n*** PPP Host ***\n");
+  printf("\n\n*** [PLM100] PPP Host ***\n");
 
   /* Single interface, no routing entry */
   ip6_init(1, 0);
@@ -50,4 +64,6 @@ void setup(void) {
 
   pinMode(GPIO1, OUTPUT);
   digitalWrite(GPIO1, HIGH);
+
+  Udp.listen(10100, EventDatagramReceived);
 }
