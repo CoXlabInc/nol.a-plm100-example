@@ -4,8 +4,7 @@
 
 void send(void *args);
 static void sendDone(IEEE802_15_4Mac &radio,
-                     IEEE802_15_4Frame *frame,
-                     error_t result);
+                     IEEE802_15_4Frame *frame);
 static void ledOnTask(void *);
 static void ledOffTask(void *);
 static void sendTask(void *args);
@@ -34,7 +33,7 @@ void setup(void) {
   srand(0x1234 + node_id);
 
   SX1276.begin();
-  SX1276.setDataRate(7);
+  SX1276.setDataRate(Radio::SF7);
   SX1276.setCodingRate(Radio::CR_4_5);
   SX1276.setTxPower(14);
   SX1276.setChannel(922100000);
@@ -75,13 +74,12 @@ static void ledOffTask(void *) {
 }
 
 static void sendDone(IEEE802_15_4Mac &radio,
-                     IEEE802_15_4Frame *frame,
-                     error_t result) {
+                     IEEE802_15_4Frame *frame) {
   uint16_t ratio;
 
   printf("TX (");
 
-  if (result == ERROR_SUCCESS) {
+  if (frame->result == RadioPacket::SUCCESS) {
     success++;
     printf("S ");
   } else {

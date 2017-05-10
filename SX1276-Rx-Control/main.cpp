@@ -19,12 +19,12 @@ static void printRxDone(void *args) {
   printf("Rx is done!: RSSI:%d dB, SNR:%d, CRC:%s, Length:%u, (",
          rxFrame->power,
          rxFrame->meta.LoRa.snr,
-         rxFrame->crc_ok ? "OK" : "FAIL",
+         rxFrame->result == RadioPacket::SUCCESS ? "OK" : "FAIL",
          rxFrame->len);
   uint16_t i;
   for (i = 0; i < rxFrame->len; i++)
     printf("%02X ", rxFrame->buf[i]);
-  printf("\b), # of Rx:%u\n", (rxFrame->crc_ok) ? ++success : success);
+  printf("\b), # of Rx:%u\n", (rxFrame->result == RadioPacket::SUCCESS) ? ++success : success);
 
   delete rxFrame;
 }

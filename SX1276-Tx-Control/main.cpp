@@ -74,6 +74,7 @@ static void appStart() {
   }
 
   SX1276.setChannel(freq);
+  SX1276.setFreqOffset(10);
   SX1276.setTxPower(txPower);
 
   if (packetMode) {

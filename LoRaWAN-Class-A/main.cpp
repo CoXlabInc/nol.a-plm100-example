@@ -1,4 +1,5 @@
 #include <cox.h>
+#include <LoRaMacKR920.hpp>
 
 LoRaMac *LoRaWAN;
 Timer timerSend;
@@ -83,8 +84,8 @@ static void eventLoRaWANJoin( LoRaMac &,
 #endif
 }
 
-static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame, error_t result) {
-  printf("* Send done(%d): [%p] destined for port[%u] ", result, frame, frame->port);
+static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame) {
+  printf("* Send done(%d): [%p] destined for port[%u] ", frame->result, frame, frame->port);
   if (frame->type == LoRaMacFrame::UNCONFIRMED) {
     printf("UNCONFIRMED");
   } else if (frame->type == LoRaMacFrame::CONFIRMED) {
@@ -120,7 +121,7 @@ void setup() {
   Serial.begin(115200);
   Serial.printf("\n*** [PLM100] LoRaWAN Class A Example ***\n");
 
-  LoRaWAN = LoRaMac::CreateForKR917();
+  LoRaWAN = new LoRaMacKR920();
 
   LoRaWAN->begin(SX1276);
   LoRaWAN->onSendDone(eventLoRaWANSendDone);

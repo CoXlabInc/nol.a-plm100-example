@@ -116,7 +116,7 @@ void setup(void) {
   SX1276.setTxPower(20);
   SX1276.setChannel(917500000);
 
-  Lpp = LPPMac::Create();
+  Lpp = new LPPMac();
   Lpp->begin(SX1276, 0x1234, 0x0001, NULL);
   Lpp->setProbePeriod(3000);
   Lpp->setListenTimeout(3300);
