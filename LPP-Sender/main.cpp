@@ -41,7 +41,7 @@ void setup(void) {
   node_ext_id[6] = highByte(node_id);
   node_ext_id[7] = lowByte(node_id);
 
-  Lpp = LPPMac::Create();
+  Lpp = new LPPMac();
   Lpp->begin(SX1276, 0x1234, node_id, node_ext_id);
   Lpp->setProbePeriod(3000);
   Lpp->setListenTimeout(3300);
