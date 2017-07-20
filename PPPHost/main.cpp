@@ -1,6 +1,7 @@
 #include <cox.h>
 
-IPv6Interface *ppp;
+IPv6 ipv6 = IPv6();
+IPv6PPPoS ppp = IPv6PPPoS(Serial2);
 Timer ledTimer;
 
 static void ledOffTask(void *args);
@@ -40,24 +41,22 @@ void setup(void) {
   Serial.begin(115200);
   printf("\n\n*** [PLM100] PPP Host ***\n");
 
-  /* Single interface, no routing entry */
-  ip6_init(1, 0);
-
   // Initialize the PPP interface.
   Serial2.begin(115200);
   Serial2.listen();
-  ppp = enableIPv6PPPoS(Serial2);
-  ppp->begin();
-  ppp->setStateNotifier(ip6_state_changed);
-  ip6_start();
+  ppp.begin();
+  ppp.setStateNotifier(ip6_state_changed);
+  ipv6.begin();
 
   IP6_ADDRESS my_prefix;
-  ip6_pton("fd00::", &my_prefix);
-  ppp->setPrefix(my_prefix,
-                  64,
-                  0xFFFFFFFFUL,
-                  0xFFFFFFFFUL,
-                  false);
+  IPv6::StringToAddr("fd00::", &my_prefix);
+  ppp.setPrefix(
+    my_prefix,
+    64,
+    0xFFFFFFFFUL,
+    0xFFFFFFFFUL,
+    false
+  );
 
   ledTimer.onFired(ledOnTask, NULL);
   ledTimer.startOneShot(1000);

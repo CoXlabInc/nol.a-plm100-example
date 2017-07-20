@@ -1,6 +1,7 @@
 #include <cox.h>
 
-IPv6Interface *ppp;
+IPv6 ipv6 = IPv6();
+IPv6PPPoS ppp = IPv6PPPoS(Serial2);
 Timer ledTimer;
 bool booted = false;
 
@@ -91,21 +92,13 @@ void setup(void) {
   Serial.begin(115200);
   printf("\n\n*** [PLM100] Nol.iter Gateway ***\n");
 
-  /* Single interface, no routing entry */
-  ip6_init(1, 0);
-
   // Initialize the PPP interface.
   Serial2.begin(115200);
   Serial2.listen();
 
-  ppp = enableIPv6PPPoS(Serial2);
-  if (ppp) {
-    ppp->begin();
-    ppp->setStateNotifier(ip6_state_changed);
-    ip6_start();
-  } else {
-    printf("* Error on enable PPPoS.\n");
-  }
+  ppp.begin();
+  ppp.setStateNotifier(ip6_state_changed);
+  ipv6.begin();
 
   ledTimer.onFired(ledOnTask, NULL);
   ledTimer.startOneShot(1000);
