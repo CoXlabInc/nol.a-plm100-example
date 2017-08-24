@@ -24,36 +24,32 @@ static const char *weekday[] = { "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"
 static void printTask(void *args) {
   printf("[%lu usec] Timer works!\n", micros());
 
-  uint16_t year;
-  uint8_t month, day, hour, minute, second;
-  RTCCalendar::WeekDay_t dayOfWeek;
-  System.getDateTime(&year, &month, &day, &hour, &minute, &second, &dayOfWeek);
-  printf("Now: %u-%u-%u %s %02u:%02u:%02u\n", year, month, day, weekday[dayOfWeek], hour, minute, second);
+  struct tm t;
+  System.getDateTime(t);
+  printf("Now: %u-%u-%u %s %02u:%02u:%02u\n", t.tm_year, t.tm_mon, t.tm_mday, weekday[t.tm_wday], t.tm_hour, t.tm_min, t.tm_sec);
   printf("Supply voltage: %ld mV\n", System.getSupplyVoltage());
 
   Serial2.printf("[%lu usec] Timer works!\n", micros());
 }
 
 static void eventDateTimeAlarm() {
-  uint16_t year;
-  uint8_t month, day, hour, minute, second;
-  RTCCalendar::WeekDay_t dayOfWeek;
-  System.getDateTime(&year, &month, &day, &hour, &minute, &second, &dayOfWeek);
-  printf("* Alarm! Now: %u-%u-%u %s %02u:%02u:%02u\n", year, month, day, weekday[dayOfWeek], hour, minute, second);
+  struct tm t;
+  System.getDateTime(t);
+  printf("* ALarm! Now: %u-%u-%u %s %02u:%02u:%02u\n", t.tm_year, t.tm_mon, t.tm_mday, weekday[t.tm_wday], t.tm_hour, t.tm_min, t.tm_sec);
 }
 
 static void buttonPressed() {
-  digitalToggle(GPIO1);
+  // digitalToggle(GPIO1);
   printf("[%lu usec] Button works!\n", micros());
 
-  if (Serial.isBegan()) {
-    printf("* Serial is turned off.\n");
-    Serial.end();
-  } else {
-    Serial.begin(115200);
-    printf("* Serial is turned on.\n");
-  }
-  digitalToggle(GPIO1);
+  // if (Serial.isBegan()) {
+  //   printf("* Serial is turned off.\n");
+  //   Serial.end();
+  // } else {
+  //   Serial.begin(115200);
+  //   printf("* Serial is turned on.\n");
+  // }
+  // digitalToggle(GPIO1);
 }
 
 static void eventSerialRx(SerialPort &p) {
@@ -72,23 +68,23 @@ void setup() {
   Serial.onReceive(eventSerialRx);
   Serial.listen();
 
-  Serial2.begin(57600);
+  Serial2.begin(9600);
   Serial2.onReceive(eventSerialRx);
   Serial2.listen();
 
   printf("\n*** [PLM100] Basic Functions ***\n");
-  System.setDateTime(2016, 8, 22, 10, 0, 0, RTCCalendar::MONDAY);
-
+  System.setTimeDiff(9 * 60); //KST
+  struct tm t;
+  t.tm_hour = 2017 - 1900;
+  t.tm_mon = 8 - 1;
+  t.tm_mday = 24;
+  t.tm_hour = 18;
+  t.tm_min = 37;
+  t.tm_sec = 50;
+  System.setDateTime(t);
   System.onDateTimeAlarm(eventDateTimeAlarm);
 
-  // Set alarm to be occurred every hour when the minute value is changed to 1.
-  System.setDateTimeAlarm(0xFFFF,                     // not supported
-                          0xFF,                       // not supported
-                          0xFF,                       // don't care
-                          0xFF,                       // don't care
-                          1,                          // care
-                          0xFF,                       // not supported
-                          RTCCalendar::UNKNOWNDAY);   // don't care
+  System.setTimeAlarm(18, 38);
 
   ledTimer.onFired(ledOffTask, NULL);
   ledTimer.startOneShot(1000);
@@ -96,7 +92,7 @@ void setup() {
   printTimer.onFired(printTask, NULL);
   printTimer.startPeriodic(1000);
 
-  pinMode(GPIO5, INPUT);
+  pinMode(GPIO5, INPUT_PULLUP);
   attachInterrupt(GPIO5, buttonPressed, FALLING);
 
   pinMode(GPIO1, OUTPUT);
