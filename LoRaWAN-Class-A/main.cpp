@@ -121,9 +121,11 @@ void setup() {
   Serial.begin(115200);
   Serial.printf("\n*** [PLM100] LoRaWAN Class A Example ***\n");
 
-  LoRaWAN = new LoRaMacKR920();
+  System.setTimeDiff(9 * 60); //KST
 
-  LoRaWAN->begin(SX1276);
+  LoRaWAN = new LoRaMacKR920(SX1276, 10);
+
+  LoRaWAN->begin();
   LoRaWAN->onSendDone(eventLoRaWANSendDone);
   LoRaWAN->onReceive(eventLoRaWANReceive);
   LoRaWAN->onJoin(eventLoRaWANJoin);
