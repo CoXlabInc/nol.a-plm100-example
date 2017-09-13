@@ -22,13 +22,24 @@ static void ledOffTask(void *args) {
 
 static const char *weekday[] = { "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
 static void printTask(void *args) {
+  Serial.write("0123456789\r\n");
   printf("[%lu usec] Timer works!\n", micros());
 
   struct tm t;
   System.getDateTime(t);
-  printf("Now: %u-%u-%u %s %02u:%02u:%02u\n", t.tm_year, t.tm_mon, t.tm_mday, weekday[t.tm_wday], t.tm_hour, t.tm_min, t.tm_sec);
+  printf(
+    "Now: %u-%u-%u %s %02u:%02u:%02u\n",
+    t.tm_year + 1900,
+    t.tm_mon + 1,
+    t.tm_mday,
+    weekday[t.tm_wday],
+    t.tm_hour,
+    t.tm_min,
+    t.tm_sec
+  );
   printf("Supply voltage: %ld mV\n", System.getSupplyVoltage());
 
+  Serial2.write("0123456789\r\n");
   Serial2.printf("[%lu usec] Timer works!\n", micros());
 }
 
