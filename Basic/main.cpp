@@ -86,7 +86,7 @@ void setup() {
   printf("\n*** [PLM100] Basic Functions ***\n");
   System.setTimeDiff(9 * 60); //KST
   struct tm t;
-  t.tm_hour = 2017 - 1900;
+  t.tm_year = 2017 - 1900;
   t.tm_mon = 8 - 1;
   t.tm_mday = 24;
   t.tm_hour = 18;
