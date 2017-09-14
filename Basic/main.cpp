@@ -84,6 +84,14 @@ void setup() {
   Serial2.listen();
 
   printf("\n*** [PLM100] Basic Functions ***\n");
+
+  uint8_t eui[8];
+  System.getEUI(eui);
+  Serial.printf(
+    "* EUI-64: %02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X\n",
+    eui[0], eui[1], eui[2], eui[3], eui[4], eui[5], eui[6], eui[7]
+  );
+
   System.setTimeDiff(9 * 60); //KST
   struct tm t;
   t.tm_year = 2017 - 1900;
