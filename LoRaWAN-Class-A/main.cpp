@@ -1,7 +1,7 @@
 #include <cox.h>
-#include <LoRaMacKR920.hpp>
+#include <LoRaMacKR920SKT.hpp>
 
-LoRaMac *LoRaWAN;
+LoRaMacKR920SKT LoRaWAN = LoRaMacKR920SKT(SX1276, 10);
 Timer timerSend;
 
 #define OVER_THE_AIR_ACTIVATION 0
@@ -56,21 +56,24 @@ static void taskPeriodicSend(void *) {
   f->buf[14] = (altitudeGps >> 8) & 0xFF;
   f->buf[15] = (altitudeGps >> 0) & 0xFF;
 
-  error_t err = LoRaWAN->send(f);
+  error_t err = LoRaWAN.send(f);
   printf("* Sending periodic report (%p): %d\n", f, err);
   if (err != ERROR_SUCCESS) {
     delete f;
   }
 }
 
-static void eventLoRaWANJoin( LoRaMac &,
-                              bool joined,
-                              const uint8_t *joinedDevEui,
-                              const uint8_t *joinedAppEui,
-                              const uint8_t *joinedAppKey,
-                              const uint8_t *joinedNwkSKey,
-                              const uint8_t *joinedAppSKey,
-                              uint32_t joinedDevAddr) {
+static void eventLoRaWANJoin(
+  LoRaMac &,
+  bool joined,
+  const uint8_t *joinedDevEui,
+  const uint8_t *joinedAppEui,
+  const uint8_t *joinedAppKey,
+  const uint8_t *joinedNwkSKey,
+  const uint8_t *joinedAppSKey,
+  uint32_t joinedDevAddr,
+  const RadioPacket &
+) {
 #if (OVER_THE_AIR_ACTIVATION == 1)
   if (joined) {
     // Status is OK, node has joined the network
@@ -123,23 +126,21 @@ void setup() {
 
   System.setTimeDiff(9 * 60); //KST
 
-  LoRaWAN = new LoRaMacKR920(SX1276, 10);
-
-  LoRaWAN->begin();
-  LoRaWAN->onSendDone(eventLoRaWANSendDone);
-  LoRaWAN->onReceive(eventLoRaWANReceive);
-  LoRaWAN->onJoin(eventLoRaWANJoin);
+  LoRaWAN.begin();
+  LoRaWAN.onSendDone(eventLoRaWANSendDone);
+  LoRaWAN.onReceive(eventLoRaWANReceive);
+  LoRaWAN.onJoin(eventLoRaWANJoin);
 
 #if (OVER_THE_AIR_ACTIVATION == 0)
   printf("ABP!\n");
-  LoRaWAN->setABP(NwkSKey, AppSKey, DevAddr);
-  LoRaWAN->setNetworkJoined(true);
+  LoRaWAN.setABP(NwkSKey, AppSKey, DevAddr);
+  LoRaWAN.setNetworkJoined(true);
 
   timerSend.onFired(taskPeriodicSend, NULL);
   timerSend.startPeriodic(10000);
 #else
   printf("Trying to join\n");
-  LoRaWAN->setNetworkJoined(true);  /* true: RealAppKey join, false: PseudoAppKey join */
-  LoRaWAN->beginJoining(devEui, appEui, appKey);
+  LoRaWAN.setNetworkJoined(true);  /* true: RealAppKey join, false: PseudoAppKey join */
+  LoRaWAN.beginJoining(devEui, appEui, appKey);
 #endif
 }
