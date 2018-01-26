@@ -52,7 +52,7 @@ static void taskPeriodicSend(void *) {
 
 //! [How to use onJoin callback for SKT]
 static void eventLoRaWANJoin(
-  LoRaMac &,
+  LoRaMac &lw,
   bool joined,
   const uint8_t *joinedDevEui,
   const uint8_t *joinedAppEui,
@@ -60,19 +60,27 @@ static void eventLoRaWANJoin(
   const uint8_t *joinedNwkSKey,
   const uint8_t *joinedAppSKey,
   uint32_t joinedDevAddr,
-  const RadioPacket &) {
+  const RadioPacket &
+) {
 #if (OVER_THE_AIR_ACTIVATION == 1)
-  if (joined) {
-    if (joinedNwkSKey && joinedAppSKey) {
-      // Status is OK, node has joined the network
-      printf("* Joined to the network!\n");
+  if (joinedNwkSKey && joinedAppSKey) {
+    /* RealAppKey Joining */
+    if (joined) {
+      Serial.println("* RealAppKey joining done!");
       postTask(taskPeriodicSend, NULL);
     } else {
-      printf("* PseudoAppKey joining done!\n");
+      Serial.println("* RealAppKey joining failed. Retry to join.");
+      lw.beginJoining(NULL, NULL, NULL);
     }
   } else {
-    printf("* Join failed. Retry to join\n");
-    LoRaWAN.beginJoining(devEui, appEui, appKey);
+    /* PseudoAppKey Joining */
+    if (joined) {
+      Serial.println("* PseudoAppKey joining done! Let's do RealAppKey joining!");
+      lw.beginJoining(NULL, NULL, NULL);
+    } else {
+      Serial.println("* PseudoAppKey joining failed. Retry to join.");
+      lw.beginJoining(devEui, appEui, appKey);
+    }
   }
 #endif
 }
