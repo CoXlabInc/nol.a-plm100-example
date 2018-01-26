@@ -1,20 +1,5 @@
-// -*- indent-tabs-mode:nil; -*-
-
 #include <cox.h>
-
-void send(void *args);
-static void sendDone(IEEE802_15_4Mac &radio,
-                     IEEE802_15_4Frame *frame);
-static void ledOnTask(void *);
-static void ledOffTask(void *);
-static void sendTask(void *args);
-static void receivedProbe(uint16_t panId,
-                          const uint8_t *eui64,
-                          uint16_t shortId,
-                          int16_t rssi,
-                          const uint8_t *payload,
-                          uint8_t payloadLen,
-                          uint32_t channel);
+#include <LPPMac.hpp>
 
 Timer ledTimer;
 Timer sendTimer;
@@ -27,40 +12,7 @@ uint32_t success = 0;
 
 LPPMac *Lpp;
 
-void setup(void) {
-  Serial.begin(115200);
-  printf("\n*** [PLM100] LPP Sender ***\n");
-  srand(0x1234 + node_id);
-
-  SX1276.begin();
-  SX1276.setDataRate(Radio::SF7);
-  SX1276.setCodingRate(Radio::CR_4_5);
-  SX1276.setTxPower(14);
-  SX1276.setChannel(922100000);
-
-  node_ext_id[6] = highByte(node_id);
-  node_ext_id[7] = lowByte(node_id);
-
-  Lpp = new LPPMac();
-  Lpp->begin(SX1276, 0x1234, node_id, node_ext_id);
-  Lpp->setProbePeriod(3000);
-  Lpp->setListenTimeout(3300);
-  Lpp->setTxTimeout(632);
-  Lpp->setRxTimeout(465);
-  Lpp->setRxWaitTimeout(30);
-  Lpp->setUseSITFirst(true);
-  Lpp->onSendDone(sendDone);
-  Lpp->onReceiveProbe(receivedProbe);
-
-  postTask(ledOnTask, NULL);
-
-  sendTimer.onFired(sendTask, NULL);
-  sendTimer.startPeriodic(10000);
-
-  pinMode(GPIO1, OUTPUT);
-  digitalWrite(GPIO1, HIGH);
-}
-
+static void ledOffTask(void *);
 static void ledOnTask(void *) {
   ledTimer.onFired(ledOffTask, NULL);
   ledTimer.startOneShot(10);
@@ -73,8 +25,7 @@ static void ledOffTask(void *) {
   digitalWrite(GPIO1, LOW);
 }
 
-static void sendDone(IEEE802_15_4Mac &radio,
-                     IEEE802_15_4Frame *frame) {
+static void sendDone(IEEE802_15_4Mac &radio, IEEE802_15_4Frame *frame) {
   uint16_t ratio;
 
   printf("TX (");
@@ -155,13 +106,15 @@ static void sendTask(void *args) {
   }
 }
 
-static void receivedProbe(uint16_t panId,
-                          const uint8_t *eui64,
-                          uint16_t shortId,
-                          int16_t rssi,
-                          const uint8_t *payload,
-                          uint8_t payloadLen,
-                          uint32_t channel) {
+static void receivedProbe(
+  uint16_t panId,
+  const uint8_t *eui64,
+  uint16_t shortId,
+  int16_t rssi,
+  const uint8_t *payload,
+  uint8_t payloadLen,
+  uint32_t channel
+) {
   printf("* Probe received from PAN:0x%04X, "
         "Node EUI64:%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x, "
         "ID:%x, RSSI:%d",
@@ -180,4 +133,38 @@ static void receivedProbe(uint16_t panId,
   }
 
   printf("\n");
+}
+
+void setup(void) {
+  Serial.begin(115200);
+  printf("\n*** [PLM100] LPP Sender ***\n");
+  srand(0x1234 + node_id);
+
+  SX1276.begin();
+  SX1276.setDataRate(Radio::SF7);
+  SX1276.setCodingRate(Radio::CR_4_5);
+  SX1276.setTxPower(14);
+  SX1276.setChannel(922100000);
+
+  node_ext_id[6] = highByte(node_id);
+  node_ext_id[7] = lowByte(node_id);
+
+  Lpp = new LPPMac();
+  Lpp->begin(SX1276, 0x1234, node_id, node_ext_id);
+  Lpp->setProbePeriod(3000);
+  Lpp->setListenTimeout(3300);
+  Lpp->setTxTimeout(632);
+  Lpp->setRxTimeout(465);
+  Lpp->setRxWaitTimeout(30);
+  Lpp->setUseSITFirst(true);
+  Lpp->onSendDone(sendDone);
+  Lpp->onReceiveProbe(receivedProbe);
+
+  postTask(ledOnTask, NULL);
+
+  sendTimer.onFired(sendTask, NULL);
+  sendTimer.startPeriodic(10000);
+
+  pinMode(GPIO1, OUTPUT);
+  digitalWrite(GPIO1, HIGH);
 }
