@@ -27,26 +27,31 @@ static void printTask(void *args) {
 
   struct tm t;
   System.getDateTime(t);
+  struct timeval now;
+  gettimeofday(&now, NULL);
   printf(
-    "Now: %u-%u-%u %s %02u:%02u:%02u\n",
+    "Now: %u-%u-%u %s %02u:%02u:%02u (%ld.%06ld)\n",
     t.tm_year + 1900,
     t.tm_mon + 1,
     t.tm_mday,
     weekday[t.tm_wday],
     t.tm_hour,
     t.tm_min,
-    t.tm_sec
+    t.tm_sec,
+    now.tv_sec,
+    now.tv_usec
   );
+
   printf("Supply voltage: %ld mV\n", System.getSupplyVoltage());
 
   Serial2.write("0123456789\r\n");
-  Serial2.printf("[%lu usec] Timer works!\n", micros());
+
 }
 
 static void eventDateTimeAlarm() {
   struct tm t;
   System.getDateTime(t);
-  printf("* ALarm! Now: %u-%u-%u %s %02u:%02u:%02u\n", t.tm_year, t.tm_mon, t.tm_mday, weekday[t.tm_wday], t.tm_hour, t.tm_min, t.tm_sec);
+  printf("* Alarm! Now: %u-%u-%u %s %02u:%02u:%02u\n", t.tm_year, t.tm_mon, t.tm_mday, weekday[t.tm_wday], t.tm_hour, t.tm_min, t.tm_sec);
 }
 
 static void buttonPressed() {
