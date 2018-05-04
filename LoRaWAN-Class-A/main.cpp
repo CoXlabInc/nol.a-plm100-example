@@ -29,7 +29,7 @@ static void taskPeriodicSend(void *) {
   LoRaMacFrame *f = new LoRaMacFrame(255);
   if (!f) {
     printf("* Out of memory\n");
-    return NULL;
+    return;
   }
 
   f->port = 1;
@@ -60,8 +60,10 @@ static void eventLoRaWANJoin(
   const uint8_t *joinedNwkSKey,
   const uint8_t *joinedAppSKey,
   uint32_t joinedDevAddr,
-  const RadioPacket &
+  const RadioPacket &,
+  uint32_t airTime
 ) {
+  printf("* JoinRequest air time: %lu usec\n", airTime);
 #if (OVER_THE_AIR_ACTIVATION == 1)
   if (joinedNwkSKey && joinedAppSKey) {
     /* RealAppKey Joining */
@@ -147,19 +149,13 @@ static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
 static void eventLoRaWANReceive(LoRaMac &lw, const LoRaMacFrame *frame) {
   static uint32_t fCntDownPrev = 0;
 
-  Serial.print("* Received a frame. Destined for port:");
-  Serial.print(frame->port);
-  Serial.print(", fCnt:0x");
-  Serial.print(frame->fCnt, HEX);
+  Serial.printf("* Received a frame. Destined for port:%u, fCnt:0x%lX", frame->port, frame->fCnt);
   if (fCntDownPrev != 0 && fCntDownPrev == frame->fCnt) {
     Serial.print(" (duplicate)");
   }
   fCntDownPrev = frame->fCnt;
-  Serial.print(", Freq:");
-  Serial.print(frame->freq);
-  Serial.print(" Hz, RSSI:");
-  Serial.print(frame->power);
-  Serial.print(" dB");
+
+  Serial.printf(", Freq:%lu Hz, RSSI:%d dB", frame->freq, frame->power);
 
   if (frame->modulation == Radio::MOD_LORA) {
     const char *strBW[] = {
@@ -246,8 +242,8 @@ static void printChannelInformation(LoRaMac &lw) {
   //! [getChannel]
 
   //! [getDatarate]
-  const LoRaMac::DatarateParams_t *dr = lw.getDatarate(lw.getDefDatarate());
-  printf(" - Default DR%u:", lw.getDefDatarate());
+  const LoRaMac::DatarateParams_t *dr = lw.getDatarate(lw.getCurrentDatarateIndex());
+  printf(" - Default DR%u:", lw.getCurrentDatarateIndex());
   if (dr->mod == Radio::MOD_LORA) {
     const char *strBW[] = {
       "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value"
@@ -422,22 +418,27 @@ static void eventLoRaWANLinkChecked(
 //! [How to use onDeviceTimeAnswered callback]
 static void eventLoRaWANDeviceTimeAnswered(
   LoRaMac &lw,
+  bool success,
   uint32_t tSeconds,
   uint8_t tFracSeconds
 ) {
-  struct tm tLocal, tUtc;
-  System.getDateTime(tLocal);
-  System.getUTC(tUtc);
-  printf(
-    "* LoRaWAN DeviceTime answered: (%lu + %u/256) GPS epoch.\n"
-    "- Adjusted local time: %u-%u-%u %02u:%02u:%02u\n"
-    "- Adjusted UTC time: %u-%u-%u %02u:%02u:%02u\n",
-    tSeconds, tFracSeconds,
-    tLocal.tm_year + 1900, tLocal.tm_mon + 1, tLocal.tm_mday,
-    tLocal.tm_hour, tLocal.tm_min, tLocal.tm_sec,
-    tUtc.tm_year + 1900, tUtc.tm_mon + 1, tUtc.tm_mday,
-    tUtc.tm_hour, tUtc.tm_min, tUtc.tm_sec
-  );
+  if (success) {
+    struct tm tLocal, tUtc;
+    System.getDateTime(tLocal);
+    System.getUTC(tUtc);
+    printf(
+      "* LoRaWAN DeviceTime answered: (%lu + %u/256) GPS epoch.\n"
+      "- Adjusted local time: %u-%u-%u %02u:%02u:%02u\n"
+      "- Adjusted UTC time: %u-%u-%u %02u:%02u:%02u\n",
+      tSeconds, tFracSeconds,
+      tLocal.tm_year + 1900, tLocal.tm_mon + 1, tLocal.tm_mday,
+      tLocal.tm_hour, tLocal.tm_min, tLocal.tm_sec,
+      tUtc.tm_year + 1900, tUtc.tm_mon + 1, tUtc.tm_mday,
+      tUtc.tm_hour, tUtc.tm_min, tUtc.tm_sec
+    );
+  } else {
+    printf("* LoRaWAN DeviceTime not answered.\n");
+  }
 }
 //! [How to use onDeviceTimeAnswered callback]
 
