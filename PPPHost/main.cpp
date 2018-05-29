@@ -1,7 +1,10 @@
 #include <cox.h>
+#include <IPv6.hpp>
+#include <IPv6PPPoS.hpp>
+#include <UDP.hpp>
 
-IPv6 ipv6 = IPv6();
-IPv6PPPoS ppp = IPv6PPPoS(Serial2);
+IPv6 ipv6;
+IPv6PPPoS ppp(Serial2);
 Timer ledTimer;
 
 static void ledOffTask(void *args);
@@ -19,8 +22,8 @@ static void ledOffTask(void *args) {
 }
 
 static void EventDatagramReceived(IPv6Interface &input,
-                                   const IP6_ADDRESS *srcAddr,
-                                   const IP6_ADDRESS *dstAddr,
+                                   const IPv6Address *srcAddr,
+                                   const IPv6Address *dstAddr,
                                    uint16_t srcPort,
                                    uint16_t dstPort,
                                    const uint8_t *msg,
@@ -32,9 +35,9 @@ static void EventDatagramReceived(IPv6Interface &input,
   printf("\n");
 }
 
-static void ip6_state_changed(IPv6Interface &ip6_inf, IPv6Interface::State_t state) {
+static void eventIPv6StateChanged(IPv6Interface &ipv6Inf, IPv6Interface::State_t state) {
   printf("IPv6 iface 'ppp0': State changed to %s\n",
-         ip6_state_string(state));
+         ipv6Inf.GetStateString(state));
 }
 
 void setup(void) {
@@ -45,13 +48,13 @@ void setup(void) {
   Serial2.begin(115200);
   Serial2.listen();
   ppp.begin();
-  ppp.setStateNotifier(ip6_state_changed);
+  ppp.setStateNotifier(eventIPv6StateChanged);
   ipv6.begin();
 
-  IP6_ADDRESS my_prefix;
-  IPv6::StringToAddr("fd00::", &my_prefix);
+  IPv6Address myPrefix;
+  myPrefix.fromString("fd00::");
   ppp.setPrefix(
-    my_prefix,
+    myPrefix,
     64,
     0xFFFFFFFFUL,
     0xFFFFFFFFUL,
