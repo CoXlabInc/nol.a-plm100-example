@@ -27,7 +27,7 @@ HTU20D htu20d;
 //! [How to send]
 static void taskPeriodicSend(void *) {
   LoRaMacFrame *f = new LoRaMacFrame(255);
-  if (!f) {
+  if (!f || !f->buf) {
     printf("* Out of memory\n");
     return;
   }
