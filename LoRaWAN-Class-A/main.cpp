@@ -171,36 +171,35 @@ static void eventLoRaWANReceive(LoRaMac &lw, const LoRaMacFrame *frame) {
     Serial.printf(", Unkndown modulation");
   }
   if (frame->type == LoRaMacFrame::UNCONFIRMED) {
-    Serial.printf(", Type:UNCONFIRMED");
+    Serial.printf(", Type:UNCONFIRMED,");
   } else if (frame->type == LoRaMacFrame::CONFIRMED) {
-    Serial.printf(", Type:CONFIRMED");
+    Serial.printf(", Type:CONFIRMED,");
+  } else if (frame->type == LoRaMacFrame::MULTICAST) {
+    Serial.printf(", Type:MULTICAST,");
+  } else if (frame->type == LoRaMacFrame::PROPRIETARY) {
+    Serial.printf(", Type:PROPRIETARY,");
+  } else {
+    Serial.printf(", unknown type,");
+  }
 
-    if (LoRaWAN.getNumPendingSendFrames() == 0) {
-      // If there is no pending send frames, send an empty frame to ack.
-      LoRaMacFrame *ackFrame = new LoRaMacFrame(0);
-      if (ackFrame) {
-        error_t err = LoRaWAN.send(ackFrame);
-        if (err != ERROR_SUCCESS) {
-          delete ackFrame;
-        }
+  for (uint8_t i = 0; i < frame->len; i++) {
+    Serial.printf(" %02X", frame->buf[i]);
+  }
+  Serial.printf(" (%u byte)\n", frame->len);
+
+  if (
+    (frame->type == LoRaMacFrame::CONFIRMED || lw.framePending) &&
+    lw.getNumPendingSendFrames() == 0
+  ) {
+    // If there is no pending send frames, send an empty frame to ack or pull more frames.
+    LoRaMacFrame *emptyFrame = new LoRaMacFrame(0);
+    if (emptyFrame) {
+      error_t err = LoRaWAN.send(emptyFrame);
+      if (err != ERROR_SUCCESS) {
+        delete emptyFrame;
       }
     }
-
-  } else if (frame->type == LoRaMacFrame::MULTICAST) {
-    Serial.printf(", Type:MULTICAST");
-  } else if (frame->type == LoRaMacFrame::PROPRIETARY) {
-    Serial.printf(", Type:PROPRIETARY");
-  } else {
-    Serial.printf(", unknown type");
   }
-
-  if (frame->len > 0) {
-    Serial.println(", ");
-    for (uint8_t i = 0; i < frame->len; i++) {
-      Serial.printf(" %02X", frame->buf[i]);
-    }
-  }
-  Serial.println();
 }
 //! [How to use onReceive callback]
 
