@@ -10,7 +10,7 @@ uint8_t node_ext_id[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0, 0};
 uint32_t sent = 0;
 uint32_t success = 0;
 
-LPPMac *Lpp;
+LPPMac Lpp;
 
 static void ledOffTask(void *);
 static void ledOnTask(void *) {
@@ -63,8 +63,11 @@ static void sendTask(void *args) {
 
   for (dst = 1; dst <= 1; dst++) {
     frame = new IEEE802_15_4Frame(100);
-    if (!frame) {
+    if (!frame || !frame->buf) {
       printf("Not enough memory\n");
+      if (frame) {
+        delete frame;
+      }
       return;
     }
 
@@ -91,7 +94,7 @@ static void sendTask(void *args) {
     payload[0] = (sent >> 8);
     payload[1] = (sent & 0xff);
 
-    err = Lpp->send(frame);
+    err = Lpp.send(frame);
     if (err != ERROR_SUCCESS) {
       printf("Sending fail.(%d)\n", err);
       delete frame;
@@ -138,7 +141,9 @@ static void receivedProbe(
 void setup(void) {
   Serial.begin(115200);
   printf("\n*** [PLM100] LPP Sender ***\n");
-  srand(0x1234 + node_id);
+  printf("* Last reset reason:0x%02X\n", System.getResetReason());
+
+  // return;
 
   SX1276.begin();
   SX1276.setDataRate(Radio::SF7);
@@ -149,16 +154,15 @@ void setup(void) {
   node_ext_id[6] = highByte(node_id);
   node_ext_id[7] = lowByte(node_id);
 
-  Lpp = new LPPMac();
-  Lpp->begin(SX1276, 0x1234, node_id, node_ext_id);
-  Lpp->setProbePeriod(3000);
-  Lpp->setListenTimeout(3300);
-  Lpp->setTxTimeout(632);
-  Lpp->setRxTimeout(465);
-  Lpp->setRxWaitTimeout(30);
-  Lpp->setUseSITFirst(true);
-  Lpp->onSendDone(sendDone);
-  Lpp->onReceiveProbe(receivedProbe);
+  Lpp.begin(SX1276, 0x1234, node_id, node_ext_id);
+  Lpp.setProbePeriod(3000);
+  Lpp.setListenTimeout(3300);
+  Lpp.setTxTimeout(632);
+  Lpp.setRxTimeout(465);
+  Lpp.setRxWaitTimeout(30);
+  Lpp.setUseSITFirst(true);
+  Lpp.onSendDone(sendDone);
+  Lpp.onReceiveProbe(receivedProbe);
 
   postTask(ledOnTask, NULL);
 
