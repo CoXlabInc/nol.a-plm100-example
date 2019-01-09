@@ -1,7 +1,7 @@
 #include <cox.h>
 
 Timer tRSSI;
-uint32_t tRxStarted;
+struct timeval tRxStarted, tRxDone;
 int16_t rssiRxStarted;
 char buf[20];
 int8_t modem;
@@ -16,11 +16,14 @@ static void printRxDone(void *args) {
   static uint16_t success = 0;
   RadioPacket *rxFrame = (RadioPacket *) args;
 
-  printf("Rx is done!: RSSI:%d dB, SNR:%d, CRC:%s, Length:%u, (",
-         rxFrame->power,
-         rxFrame->meta.LoRa.snr,
-         rxFrame->result == RadioPacket::SUCCESS ? "OK" : "FAIL",
-         rxFrame->len);
+  printf(
+    "[%lu.%06lu] Rx is done!: RSSI:%d dB, SNR:%d, CRC:%s, Length:%u, (",
+    tRxDone.tv_sec, tRxDone.tv_usec,
+    rxFrame->power,
+    rxFrame->meta.LoRa.snr,
+    rxFrame->result == RadioPacket::SUCCESS ? "OK" : "FAIL",
+    rxFrame->len
+  );
   uint16_t i;
   for (i = 0; i < rxFrame->len; i++)
     printf("%02X ", rxFrame->buf[i]);
@@ -29,7 +32,8 @@ static void printRxDone(void *args) {
   delete rxFrame;
 }
 
-static void eventOnRxDone(void *ctx) {
+static void eventOnRxDone(void *ctx, struct timeval &t) {
+  tRxDone = t;
   RadioPacket *rxFrame = new RadioPacket(125);
 
   if (!rxFrame) {
@@ -43,17 +47,20 @@ static void eventOnRxDone(void *ctx) {
   //SX1276.cca();
 }
 
-static void eventOnChannelBusy(void *ctx) {
+static void eventOnChannelBusy(void *ctx, struct timeval &) {
   printf("Channel Busy!!\n");
   //SX1276.cca();
 }
 
 static void printRxStarted(void *args) {
-  printf("[%lu us] Rx is started... (%d dB)\n", tRxStarted, rssiRxStarted);
+  printf(
+    "[%lu.%06lu] Rx is started... (%d dB)\n",
+    tRxStarted.tv_sec, tRxStarted.tv_usec, rssiRxStarted
+  );
 }
 
-static void eventOnRxStarted(void *ctx) {
-  tRxStarted = micros();
+static void eventOnRxStarted(void *ctx, struct timeval &t) {
+  tRxStarted = t;
   rssiRxStarted = SX1276.getRssi();
   postTask(printRxStarted, NULL);
 }
@@ -253,9 +260,8 @@ void setup(void) {
   Serial.begin(115200);
   printf("\n*** [PLM100] SX1276 Low-Level Rx Control Example ***\n");
 
-  Serial.listen();
-
 #if 1
+  Serial.listen();
   askModem();
 #else
   modem = 0;
