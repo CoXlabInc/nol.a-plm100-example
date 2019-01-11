@@ -32,8 +32,8 @@ static void printRxDone(void *args) {
   delete rxFrame;
 }
 
-static void eventOnRxDone(void *ctx, struct timeval &t) {
-  tRxDone = t;
+static void eventOnRxDone(void *ctx, GPIOInterruptInfo_t *intrInfo) {
+  tRxDone = intrInfo->timeEnteredISR;
   RadioPacket *rxFrame = new RadioPacket(125);
 
   if (!rxFrame) {
@@ -47,7 +47,7 @@ static void eventOnRxDone(void *ctx, struct timeval &t) {
   //SX1276.cca();
 }
 
-static void eventOnChannelBusy(void *ctx, struct timeval &) {
+static void eventOnChannelBusy(void *ctx, GPIOInterruptInfo_t *) {
   printf("Channel Busy!!\n");
   //SX1276.cca();
 }
@@ -59,13 +59,13 @@ static void printRxStarted(void *args) {
   );
 }
 
-static void eventOnRxStarted(void *ctx, struct timeval &t) {
-  tRxStarted = t;
+static void eventOnRxStarted(void *ctx, GPIOInterruptInfo_t *intrInfo) {
+  tRxStarted = intrInfo->timeEnteredISR;
   rssiRxStarted = SX1276.getRssi();
-  postTask(printRxStarted, NULL);
+  postTask(printRxStarted);
 }
 
-static void taskRSSI(void *args) {
+static void taskRSSI(void *) {
   printf("[%lu us] RSSI: %d dB\n", micros(), SX1276.getRssi());
 }
 
@@ -95,9 +95,9 @@ static void appStart() {
   }
 
   SX1276.setChannel(freq);
-  SX1276.onRxStarted(eventOnRxStarted, NULL);
-  SX1276.onRxDone(eventOnRxDone, NULL);
-  SX1276.onChannelBusy(eventOnChannelBusy, NULL);
+  SX1276.onRxStarted = eventOnRxStarted;
+  SX1276.onRxDone = eventOnRxDone;
+  SX1276.onChannelBusy = eventOnChannelBusy;
   SX1276.wakeup();
   //SX1276.cca();
 
