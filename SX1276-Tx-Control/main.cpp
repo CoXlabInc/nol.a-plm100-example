@@ -15,7 +15,7 @@ uint8_t syncword = 0x12;
 uint32_t freq = 921700000;
 bool packetMode = true;
 
-static void eventOnTxDone(void *ctx, bool success) {
+static void eventOnTxDone(void *ctx, bool success, GPIOInterruptInfo_t *) {
   printf("[%lu us] Tx %s!\n", micros(), (success) ? "SUCCESS" : "FAIL");
   delete frame;
   frame = NULL;
@@ -80,7 +80,7 @@ static void appStart() {
   SX1276.setTxPower(txPower);
 
   if (packetMode) {
-    SX1276.onTxDone(eventOnTxDone, NULL);
+    SX1276.onTxDone = eventOnTxDone;
     // SX1276.wakeup();
 
     sendTimer.onFired(sendTask, NULL);
