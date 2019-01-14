@@ -1,6 +1,5 @@
-// -*- indent-tabs-mode:nil; -*-
-
-#include "cox.h"
+#include <cox.h>
+#include <LPPMac.hpp>
 
 static void received(IEEE802_15_4Mac &radio, const IEEE802_15_4Frame *frame);
 static void receivedProbe(uint16_t panId,

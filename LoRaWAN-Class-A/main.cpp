@@ -2,7 +2,7 @@
 #include <HTU20D.hpp>
 #include <LoRaMacKR920SKT.hpp>
 
-LoRaMacKR920SKT LoRaWAN = LoRaMacKR920SKT(SX1276, 10);
+LoRaMacKR920SKT LoRaWAN = LoRaMacKR920SKT(SX1276, nullptr, 10);
 Timer timerSend, timerSense;
 
 #define OVER_THE_AIR_ACTIVATION 1
