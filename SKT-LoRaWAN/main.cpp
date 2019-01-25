@@ -3,9 +3,31 @@
 #define INTERVAL_SEND 20000
 #define OVER_THE_AIR_ACTIVATION 1
 #define INIT_CLASS_C 0
+#define SKIP_PSEUDOJOIN 1
 
-#include "LoRaMacKR920.hpp"
-LoRaMacKR920 LoRaWAN(SX1276, 10);
+//! [How to declare LoRaMac for SKT]
+#include <LoRaMacKR920SKT.hpp>
+
+LoRaMacKR920SKT LoRaWAN = LoRaMacKR920SKT(
+  SX1276,
+  [](uint8_t msgType) {
+    switch (msgType) {
+      case LoRaMacKR920SKT::MSG_TYPE_REAL_APP_KEY_ALLOC_REQ:
+      /* Do something. */
+      break;
+
+      case LoRaMacKR920SKT::MSG_TYPE_REAL_APP_KEY_RX_REPORT_REQ:
+      /* Do something. */
+      break;
+
+      default:
+      /* Do something. */
+      break;
+    }
+  },
+  10
+);
+//! [How to declare LoRaMac for SKT]
 
 Timer timerSend;
 
@@ -23,7 +45,6 @@ static const uint8_t AppSKey[] = "\x7a\x56\x2a\x75\xd7\xa3\xbd\x89\xa3\xde\x53\x
 static uint32_t DevAddr = 0x06e632e8;
 #endif //OVER_THE_AIR_ACTIVATION
 
-//! [How to send]
 static void taskPeriodicSend(void *) {
   LoRaMacFrame *f = new LoRaMacFrame(255);
   if (!f) {
@@ -42,7 +63,7 @@ static void taskPeriodicSend(void *) {
   // LoRaWAN.useADR = false;
   // f->modulation = Radio::MOD_LORA;
   // f->meta.LoRa.bw = Radio::BW_125kHz;
-  // f->meta.LoRa.sf = Radio::SF7;
+  // f->meta.LoRa.sf = Radio::SF10;
   // f->power = 1; /* Index 1 => MaxEIRP - 2 dBm */
 
   /* Uncomment below line to specify number of trials. */
@@ -62,12 +83,11 @@ static void taskPeriodicSend(void *) {
   err = LoRaWAN.requestDeviceTime();
   printf("* Request DeviceTime: %d\n", err);
 }
-//! [How to send]
 
 #if (OVER_THE_AIR_ACTIVATION == 1)
-//! [How to use onJoin callback]
+//! [How to use onJoin callback for SKT]
 static void eventLoRaWANJoin(
-  LoRaMac &lw,
+  LoRaMac &,
   bool joined,
   const uint8_t *joinedDevEui,
   const uint8_t *joinedAppEui,
@@ -80,22 +100,29 @@ static void eventLoRaWANJoin(
 ) {
   Serial.printf("* Tx time of JoinRequest: %lu usec.\n", airTime);
 
-  if (joined) {
-    Serial.println("* Joining done!");
-
-#if (INIT_CLASS_C == 1)
-    lw.setDeviceClass(LoRaMac::CLASS_C);
-#endif
-    postTask(taskPeriodicSend, NULL);
+  if (joinedNwkSKey && joinedAppSKey) {
+    /* RealAppKey Joining */
+    if (joined) {
+      Serial.println("* RealAppKey joining done!");
+      postTask(taskPeriodicSend, NULL);
+    } else {
+      Serial.println("* RealAppKey joining failed. Retry to join.");
+      LoRaWAN.beginJoining(NULL, NULL, NULL);
+    }
   } else {
-    Serial.println("* Joining failed. Retry to join.");
-    lw.beginJoining(devEui, appEui, appKey);
+    /* PseudoAppKey Joining */
+    if (joined) {
+      Serial.println("* PseudoAppKey joining done! Let's do RealAppKey joining!");
+      LoRaWAN.beginJoining(NULL, NULL, NULL);
+    } else {
+      Serial.println("* PseudoAppKey joining failed. Retry to join.");
+      LoRaWAN.beginJoining(devEui, appEui, appKey);
+    }
   }
 }
-//! [How to use onJoin callback]
+//! [How to use onJoin callback for SKT]
 #endif //OVER_THE_AIR_ACTIVATION
 
-//! [How to use onSendDone callback]
 static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
   Serial.printf(
     "* Send done(%d): destined for port:%u, fCnt:0x%lX, Freq:%lu Hz, "
@@ -150,9 +177,7 @@ static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
 
   timerSend.startOneShot(INTERVAL_SEND);
 }
-//! [How to use onSendDone callback]
 
-//! [How to use onReceive callback]
 static void eventLoRaWANReceive(LoRaMac &lw, const LoRaMacFrame *frame) {
   static uint32_t fCntDownPrev = 0;
 
@@ -504,9 +529,20 @@ static void eventButtonPressed() {
 
 static void taskBeginJoin(void *) {
   Serial.stopListening();
-  Serial.println("* Let's start join!");
-  // LoRaWAN.setCurrentDatarateIndex(1); //SF8
+
+#if (SKIP_PSEUDOJOIN == 0)
+  Serial.println("* Let's start PseudoAppKey join!");
+  //! [SKT PseudoAppKey joining]
+  LoRaWAN.setNetworkJoined(false);
   LoRaWAN.beginJoining(devEui, appEui, appKey);
+  //! [SKT PseudoAppKey joining]
+#else
+  Serial.println("* Let's start RealAppKey join!");
+  //! [SKT RealAppKey joining]
+  LoRaWAN.setNetworkJoined(true);
+  LoRaWAN.beginJoining(devEui, appEui, appKey);
+  //! [SKT RealAppKey joining]
+#endif
 }
 
 static void eventAppKeyInput(SerialPort &) {

@@ -1,6 +1,19 @@
 #include <cox.h>
 #include <LPPMac.hpp>
 
+//![Init]
+void send(void *args);
+static void sendDone(IEEE802_15_4Mac &radio,
+                     IEEE802_15_4Frame *frame);
+static void sendTask(void *args);
+static void receivedProbe(uint16_t panId,
+                          const uint8_t *eui64,
+                          uint16_t shortId,
+                          int16_t rssi,
+                          const uint8_t *payload,
+                          uint8_t payloadLen,
+                          uint32_t channel);
+
 Timer ledTimer;
 Timer sendTimer;
 
@@ -12,20 +25,37 @@ uint32_t success = 0;
 
 LPPMac Lpp;
 
-static void ledOffTask(void *);
-static void ledOnTask(void *) {
-  ledTimer.onFired(ledOffTask, NULL);
-  ledTimer.startOneShot(10);
-  digitalWrite(GPIO1, HIGH);
-}
+void setup(void) {
+  Serial.begin(115200);
+  printf("\n*** [PLM100] LPP Sender ***\n");
 
-static void ledOffTask(void *) {
-  ledTimer.onFired(ledOnTask, NULL);
-  ledTimer.startOneShot(990);
-  digitalWrite(GPIO1, LOW);
-}
+  SX1276.begin();
+  SX1276.setDataRate(Radio::SF7);
+  SX1276.setCodingRate(Radio::CR_4_5);
+  SX1276.setTxPower(14);
+  SX1276.setChannel(917500000);
 
-static void sendDone(IEEE802_15_4Mac &radio, IEEE802_15_4Frame *frame) {
+  node_ext_id[6] = highByte(node_id);
+  node_ext_id[7] = lowByte(node_id);
+
+  Lpp.begin(SX1276, 0x1234, node_id, node_ext_id);
+  Lpp.setProbePeriod(3000);
+  Lpp.setListenTimeout(3300);
+  Lpp.setTxTimeout(632);
+  Lpp.setRxTimeout(465);
+  Lpp.setRxWaitTimeout(30);
+  Lpp.setUseSITFirst(true);
+  Lpp.onSendDone(sendDone);
+  Lpp.onReceiveProbe(receivedProbe);
+
+  sendTimer.onFired(sendTask, NULL);
+  sendTimer.startPeriodic(10000);
+}
+//![Init]
+
+//![Send]
+static void sendDone(IEEE802_15_4Mac &radio,
+                     IEEE802_15_4Frame *frame) {
   uint16_t ratio;
 
   printf("TX (");
@@ -63,17 +93,14 @@ static void sendTask(void *args) {
 
   for (dst = 1; dst <= 1; dst++) {
     frame = new IEEE802_15_4Frame(100);
-    if (!frame || !frame->buf) {
+    if (!frame) {
       printf("Not enough memory\n");
-      if (frame) {
-        delete frame;
-      }
       return;
     }
 
     frame->dstAddr.pan.len = 2;
     frame->dstAddr.pan.id = 0x1234;
-  #if 0
+  #if 1
     frame->dstAddr.len = 2;
     frame->dstAddr.id.s16 = dst;
   #else
@@ -108,16 +135,15 @@ static void sendTask(void *args) {
     }
   }
 }
+//![Send]
 
-static void receivedProbe(
-  uint16_t panId,
-  const uint8_t *eui64,
-  uint16_t shortId,
-  int16_t rssi,
-  const uint8_t *payload,
-  uint8_t payloadLen,
-  uint32_t channel
-) {
+static void receivedProbe(uint16_t panId,
+                          const uint8_t *eui64,
+                          uint16_t shortId,
+                          int16_t rssi,
+                          const uint8_t *payload,
+                          uint8_t payloadLen,
+                          uint32_t channel) {
   printf("* Probe received from PAN:0x%04X, "
         "Node EUI64:%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x, "
         "ID:%x, RSSI:%d",
@@ -136,39 +162,4 @@ static void receivedProbe(
   }
 
   printf("\n");
-}
-
-void setup(void) {
-  Serial.begin(115200);
-  printf("\n*** [PLM100] LPP Sender ***\n");
-  printf("* Last reset reason:0x%02X\n", System.getResetReason());
-
-  // return;
-
-  SX1276.begin();
-  SX1276.setDataRate(Radio::SF7);
-  SX1276.setCodingRate(Radio::CR_4_5);
-  SX1276.setTxPower(14);
-  SX1276.setChannel(922100000);
-
-  node_ext_id[6] = highByte(node_id);
-  node_ext_id[7] = lowByte(node_id);
-
-  Lpp.begin(SX1276, 0x1234, node_id, node_ext_id);
-  Lpp.setProbePeriod(3000);
-  Lpp.setListenTimeout(3300);
-  Lpp.setTxTimeout(632);
-  Lpp.setRxTimeout(465);
-  Lpp.setRxWaitTimeout(30);
-  Lpp.setUseSITFirst(true);
-  Lpp.onSendDone(sendDone);
-  Lpp.onReceiveProbe(receivedProbe);
-
-  postTask(ledOnTask, NULL);
-
-  sendTimer.onFired(sendTask, NULL);
-  sendTimer.startPeriodic(10000);
-
-  pinMode(GPIO1, OUTPUT);
-  digitalWrite(GPIO1, HIGH);
 }

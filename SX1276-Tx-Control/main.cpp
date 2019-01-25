@@ -3,6 +3,7 @@
 Timer sendTimer;
 RadioPacket *frame = NULL;
 uint32_t sent = 0;
+struct timeval tSent;
 
 char buf[20];
 int8_t modem;
@@ -15,13 +16,18 @@ uint8_t syncword = 0x12;
 uint32_t freq = 921700000;
 bool packetMode = true;
 
-static void eventOnTxDone(void *ctx, bool success, GPIOInterruptInfo_t *) {
-  printf("[%lu us] Tx %s!\n", micros(), (success) ? "SUCCESS" : "FAIL");
+static void eventOnTxDone(void *ctx, bool success, GPIOInterruptInfo_t *intrInfo) {
+  digitalWrite(GPIO3, LOW);
+  printf("[%lu.%06lu] Tx", intrInfo->timeEnteredISR.tv_sec, intrInfo->timeEnteredISR.tv_usec);
+  if (success) {
+    struct timeval tDuration;
+    timersub(&intrInfo->timeEnteredISR, &tSent, &tDuration);
+    printf("SUCCESS! (duration: %lu.%06lu)\n", tDuration.tv_sec, tDuration.tv_usec);
+  } else {
+    printf("FAIL!\n");
+  }
   delete frame;
-  frame = NULL;
-  Serial.stopListening();
-  // Serial.flush();
-  // Serial.end();
+  frame = nullptr;
   SX1276.sleep();
 }
 
@@ -44,11 +50,17 @@ static void sendTask(void *args) {
   frame->buf[1] = (sent & 0xff);
 
   SX1276.wakeup();
-  SX1276.transmit(frame);
+  if (SX1276.transmit(frame) == ERROR_SUCCESS) {
+    gettimeofday(&tSent, nullptr);
+    digitalWrite(GPIO3, HIGH);
 
-  printf("[%lu us] %lu Tx started...\n", micros(), sent);
-  sent++;
-  Serial.listen();
+    printf("[%lu.%06lu] %lu Tx started...\n", tSent.tv_sec, tSent.tv_usec, sent);
+    sent++;
+  } else {
+    delete frame;
+    frame = nullptr;
+    printf("Tx error\n");
+  }
 }
 
 static void eventKeyStroke(SerialPort &) {
@@ -56,8 +68,9 @@ static void eventKeyStroke(SerialPort &) {
 }
 
 static void appStart() {
-  Serial.stopInput(); // to receive key stroke not string
-  Serial.onReceive(eventKeyStroke);
+  // Serial.stopInput(); // to receive key stroke not string
+  // Serial.onReceive(eventKeyStroke);
+  Serial.stopListening();
 
   /* All parameters are specified. */
 
@@ -84,7 +97,7 @@ static void appStart() {
     // SX1276.wakeup();
 
     sendTimer.onFired(sendTask, NULL);
-    sendTimer.startPeriodic(5000);
+    sendTimer.startPeriodic(6000);
     // postTask(sendTask, NULL);
   } else {
     SX1276.transmitCW(true);
@@ -163,15 +176,15 @@ static void inputSyncword(SerialPort &) {
 
 static void inputIQ(SerialPort &);
 static void askIQ() {
-  printf("Set IQ (0:normal, 1:inverted) [0]:");
+  printf("Set IQ (1:normal, 2:inverted) [1]:");
   Serial.onReceive(inputIQ);
   Serial.inputKeyboard(buf, sizeof(buf));
 }
 
 static void inputIQ(SerialPort &) {
-  if (strlen(buf) == 0 || strcmp(buf, "0") == 0) {
+  if (strlen(buf) == 0 || strcmp(buf, "1") == 0) {
     printf("* Normal selected.\n");
-  } else if (strcmp(buf, "1") == 0) {
+  } else if (strcmp(buf, "2") == 0) {
     printf("* inverted selected.\n");
     iq = false;
   } else {
@@ -207,18 +220,18 @@ static void inputTxPower(SerialPort &) {
 
 static void inputBW(SerialPort &);
 static void askBW() {
-  printf("Set bandwidth (1:125kHz, 2:250kHz, 3:500kHz) [0]:");
+  printf("Set bandwidth (1:125kHz, 2:250kHz, 3:500kHz) [1]:");
   Serial.onReceive(inputBW);
   Serial.inputKeyboard(buf, sizeof(buf));
 }
 
 static void inputBW(SerialPort &) {
-  if (strlen(buf) == 0 || strcmp(buf, "0") == 0) {
+  if (strlen(buf) == 0 || strcmp(buf, "1") == 0) {
     printf("* 125kHz selected.\n");
-  } else if (strcmp(buf, "1") == 0) {
+  } else if (strcmp(buf, "2") == 0) {
     printf("* 250kHz selected.\n");
     bw = Radio::BW_250kHz;
-  } else if (strcmp(buf, "2") == 0) {
+  } else if (strcmp(buf, "3") == 0) {
     printf("* 500kHz selected.\n");
     bw = Radio::BW_500kHz;
   } else {
@@ -291,16 +304,16 @@ static void inputSF(SerialPort &) {
 
 static void inputModem(SerialPort &);
 static void askModem() {
-  printf("Select modem (0: LoRa, 1:FSK) [0]:");
+  printf("Select modem (1: LoRa, 2:FSK) [1]:");
   Serial.onReceive(inputModem);
   Serial.inputKeyboard(buf, sizeof(buf));
 }
 
 static void inputModem(SerialPort &) {
-  if (strlen(buf) == 0 || strcmp(buf, "0") == 0) {
+  if (strlen(buf) == 0 || strcmp(buf, "1") == 0) {
     printf("* LoRa selected.\n");
     askSF();
-  } else if (strcmp(buf, "1") == 0) {
+  } else if (strcmp(buf, "2") == 0) {
     printf("* FSK selected.\n");
     modem = 1;
     appStart();
@@ -313,11 +326,14 @@ static void inputModem(SerialPort &) {
 
 void setup() {
   Serial.begin(115200);
-  printf("*** [Nol.Board] SX1276 Low-Level Tx Control Example ***\n");
+  printf("*** [PLM100] SX1276 Low-Level Tx Control Example ***\n");
 
   SX1276.begin();
   SX1276.sleep();
-#if 0
+
+  pinMode(GPIO3, OUTPUT);
+  digitalWrite(GPIO3, LOW);
+#if 1
   Serial.listen();
   askModem();
 #else

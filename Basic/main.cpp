@@ -20,11 +20,15 @@ static void ledOffTask(void *args) {
   digitalWrite(GPIO1, LOW);
 }
 
+//![weekday strings]
 static const char *weekday[] = { "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
+//![weekday strings]
+
 static void printTask(void *args) {
   Serial.write("0123456789\r\n");
   printf("[%lu usec] Timer works!\n", micros());
 
+  //![How to use getDateTime]
   struct tm t;
   System.getDateTime(t);
   struct timeval now;
@@ -41,6 +45,7 @@ static void printTask(void *args) {
     now.tv_sec,
     now.tv_usec
   );
+  //![How to use getDateTime]
 
   printf("Supply voltage: %ld mV\n", System.getSupplyVoltage());
 
@@ -97,7 +102,10 @@ void setup() {
     eui[0], eui[1], eui[2], eui[3], eui[4], eui[5], eui[6], eui[7]
   );
 
+  //![How to use setTimeDiff]
   System.setTimeDiff(9 * 60); //KST
+  //![How to use setTimeDiff]
+
   struct tm t;
   t.tm_year = 2017 - 1900;
   t.tm_mon = 8 - 1;

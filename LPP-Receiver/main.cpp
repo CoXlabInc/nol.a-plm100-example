@@ -10,14 +10,10 @@ static void receivedProbe(uint16_t panId,
                           uint8_t payloadLen,
                           uint32_t channel);
 
-static void ledOnTask(void *);
-static void ledOffTask(void *);
-
 uint16_t node_id = 2;
 uint8_t node_ext_id[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0, 0};
 
-LPPMac *Lpp;
-Timer ledTimer;
+LPPMac Lpp;
 
 void setup(void) {
   Serial.begin(115200);
@@ -32,40 +28,25 @@ void setup(void) {
   node_ext_id[6] = highByte(node_id);
   node_ext_id[7] = lowByte(node_id);
 
-  Lpp = new LPPMac();
-  Lpp->begin(SX1276, 0x1234, 0xFFFF, node_ext_id);
-  Lpp->setProbePeriod(3000);
-  Lpp->setListenTimeout(3300);
-  Lpp->setTxTimeout(632);
-  Lpp->setRxTimeout(465);
-  Lpp->setRxWaitTimeout(30);
-  Lpp->setRadioAlwaysOn(true);
+  Lpp.begin(SX1276, 0x1234, 0xFFFF, node_ext_id);
+  Lpp.setProbePeriod(3000);
+  Lpp.setListenTimeout(3300);
+  Lpp.setTxTimeout(632);
+  Lpp.setRxTimeout(465);
+  Lpp.setRxWaitTimeout(30);
+  Lpp.setRadioAlwaysOn(true);
 
-  Lpp->onReceive(received);
-  Lpp->onReceiveProbe(receivedProbe);
-
-  pinMode(GPIO1, OUTPUT);
+  Lpp.onReceive(received);
+  Lpp.onReceiveProbe(receivedProbe);
 }
 
-static void ledOnTask(void *) {
-  ledTimer.onFired(ledOffTask, NULL);
-  ledTimer.startOneShot(10);
-  digitalWrite(GPIO1, HIGH);
-}
-
-static void ledOffTask(void *) {
-  ledTimer.onFired(ledOnTask, NULL);
-  ledTimer.startOneShot(990);
-  digitalWrite(GPIO1, LOW);
-}
-
+//![Receive]
 static void received(IEEE802_15_4Mac &radio, const IEEE802_15_4Frame *frame) {
   uint8_t i;
   const uint8_t *payload;
 
   payload = (const uint8_t *) frame->getPayloadPointer();
 
-  // ledToggle(3);
   if (frame->srcAddr.len == 2) {
     printf("RX : %x, \t", frame->srcAddr.id.s16);
   } else if (frame->srcAddr.len == 8) {
@@ -90,6 +71,7 @@ static void received(IEEE802_15_4Mac &radio, const IEEE802_15_4Frame *frame) {
     printf(" %02X", payload[i]);
   printf("\n");
 }
+//![Receive]
 
 static void receivedProbe(uint16_t panId,
                           const uint8_t *eui64,

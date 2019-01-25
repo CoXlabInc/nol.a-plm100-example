@@ -1,0 +1,4 @@
+{
+ "board": "nol.board",
+ "options": "NOLA_DEBUG_LORAWAN=0"
+}
