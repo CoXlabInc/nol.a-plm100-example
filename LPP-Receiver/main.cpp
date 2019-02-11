@@ -42,33 +42,29 @@ void setup(void) {
 
 //![Receive]
 static void received(IEEE802_15_4Mac &radio, const IEEE802_15_4Frame *frame) {
-  uint8_t i;
-  const uint8_t *payload;
-
-  payload = (const uint8_t *) frame->getPayloadPointer();
-
-  if (frame->srcAddr.len == 2) {
-    printf("RX : %x, \t", frame->srcAddr.id.s16);
-  } else if (frame->srcAddr.len == 8) {
+  IEEE802_15_4Address srcAddr = frame->getSrcAddr();
+  if (srcAddr.len == 2) {
+    printf("RX : %x, \t", srcAddr.id.s16);
+  } else if (srcAddr.len == 8) {
     printf("RX : %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x, \t",
-           frame->srcAddr.id.s64[0],
-           frame->srcAddr.id.s64[1],
-           frame->srcAddr.id.s64[2],
-           frame->srcAddr.id.s64[3],
-           frame->srcAddr.id.s64[4],
-           frame->srcAddr.id.s64[5],
-           frame->srcAddr.id.s64[6],
-           frame->srcAddr.id.s64[7]);
+           srcAddr.id.s64[0],
+           srcAddr.id.s64[1],
+           srcAddr.id.s64[2],
+           srcAddr.id.s64[3],
+           srcAddr.id.s64[4],
+           srcAddr.id.s64[5],
+           srcAddr.id.s64[6],
+           srcAddr.id.s64[7]);
   }
   printf("RSSI(%d),\tSNR(%d)\t%02x %02x~ (length:%u)",
          frame->power,
          frame->meta.LoRa.snr,
-         payload[0],
-         payload[1],
+         frame->getPayloadAt(0),
+         frame->getPayloadAt(1),
          frame->getPayloadLength());
 
-  for (i = 0; i < frame->getPayloadLength(); i++)
-    printf(" %02X", payload[i]);
+  for (uint16_t i = 0; i < frame->getPayloadLength(); i++)
+    printf(" %02X", frame->getPayloadAt(i));
   printf("\n");
 }
 //![Receive]

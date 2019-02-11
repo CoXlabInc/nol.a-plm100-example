@@ -16,21 +16,6 @@ uint8_t syncword = 0x12;
 uint32_t freq = 921700000;
 bool packetMode = true;
 
-static void eventOnTxDone(void *ctx, bool success, GPIOInterruptInfo_t *intrInfo) {
-  digitalWrite(GPIO3, LOW);
-  printf("[%lu.%06lu] Tx", intrInfo->timeEnteredISR.tv_sec, intrInfo->timeEnteredISR.tv_usec);
-  if (success) {
-    struct timeval tDuration;
-    timersub(&intrInfo->timeEnteredISR, &tSent, &tDuration);
-    printf("SUCCESS! (duration: %lu.%06lu)\n", tDuration.tv_sec, tDuration.tv_usec);
-  } else {
-    printf("FAIL!\n");
-  }
-  delete frame;
-  frame = nullptr;
-  SX1276.sleep();
-}
-
 static void sendTask(void *args) {
   if (frame != NULL) {
     printf("Tx in progress...\n");
@@ -60,7 +45,25 @@ static void sendTask(void *args) {
     delete frame;
     frame = nullptr;
     printf("Tx error\n");
+
+    postTask(sendTask);
   }
+}
+
+static void eventOnTxDone(void *ctx, bool success, GPIOInterruptInfo_t *intrInfo) {
+  digitalWrite(GPIO3, LOW);
+  printf("[%lu.%06lu] Tx", intrInfo->timeEnteredISR.tv_sec, intrInfo->timeEnteredISR.tv_usec);
+  if (success) {
+    struct timeval tDuration;
+    timersub(&intrInfo->timeEnteredISR, &tSent, &tDuration);
+    printf("SUCCESS! (duration: %lu.%06lu)\n", tDuration.tv_sec, tDuration.tv_usec);
+  } else {
+    printf("FAIL!\n");
+  }
+  delete frame;
+  frame = nullptr;
+  SX1276.sleep();
+  postTask(sendTask);
 }
 
 static void eventKeyStroke(SerialPort &) {
@@ -96,9 +99,9 @@ static void appStart() {
     SX1276.onTxDone = eventOnTxDone;
     // SX1276.wakeup();
 
-    sendTimer.onFired(sendTask, NULL);
-    sendTimer.startPeriodic(6000);
-    // postTask(sendTask, NULL);
+    // sendTimer.onFired(sendTask, NULL);
+    // sendTimer.startPeriodic(6000);
+    postTask(sendTask);
   } else {
     SX1276.transmitCW(true);
   }

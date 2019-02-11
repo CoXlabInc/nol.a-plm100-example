@@ -1,4 +1,4 @@
 {
- "board": "nol.board",
+ "board": "plm100",
  "options": "NOLA_DEBUG_LORAWAN=0"
 }
