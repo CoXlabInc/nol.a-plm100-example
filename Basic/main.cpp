@@ -56,7 +56,7 @@ static void printTask(void *args) {
 static void eventDateTimeAlarm() {
   struct tm t;
   System.getDateTime(t);
-  printf("* Alarm! Now: %u-%u-%u %s %02u:%02u:%02u\n", t.tm_year, t.tm_mon, t.tm_mday, weekday[t.tm_wday], t.tm_hour, t.tm_min, t.tm_sec);
+  printf("* Alarm! Now: %u-%u-%u %s %02u:%02u:%02u\n", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, weekday[t.tm_wday], t.tm_hour, t.tm_min, t.tm_sec);
 }
 
 static void buttonPressed() {
