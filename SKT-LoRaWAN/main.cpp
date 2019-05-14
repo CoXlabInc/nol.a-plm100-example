@@ -8,25 +8,7 @@
 //! [How to declare LoRaMac for SKT]
 #include <LoRaMacKR920SKT.hpp>
 
-LoRaMacKR920SKT LoRaWAN = LoRaMacKR920SKT(
-  SX1276,
-  [](uint8_t msgType) {
-    switch (msgType) {
-      case LoRaMacKR920SKT::MSG_TYPE_REAL_APP_KEY_ALLOC_REQ:
-      /* Do something. */
-      break;
-
-      case LoRaMacKR920SKT::MSG_TYPE_REAL_APP_KEY_RX_REPORT_REQ:
-      /* Do something. */
-      break;
-
-      default:
-      /* Do something. */
-      break;
-    }
-  },
-  10
-);
+LoRaMacKR920SKT LoRaWAN = LoRaMacKR920SKT(SX1276, 10);
 //! [How to declare LoRaMac for SKT]
 
 Timer timerSend;
