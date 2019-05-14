@@ -1,13 +1,23 @@
 #include <cox.h>
 
-#define INTERVAL_SEND 20000
+#define INTERVAL_SEND 5000
 #define OVER_THE_AIR_ACTIVATION 1
-#define INIT_CLASS_C 0
+#define LED_LORA  GPIO1
+#define LED_SENSE GPIO2
 
-#include "LoRaMacKR920.hpp"
+#include <LoRaMacKR920.hpp>
+#include <dev/HTU20D.hpp>
+#include <dev/MMA8452Q.hpp>
+
 LoRaMacKR920 LoRaWAN(SX1276, 10);
 
 Timer timerSend;
+Timer timerSensor;
+HTU20D htu20d;
+uint16_t valTemp = 0;
+uint16_t valHum = 0;
+MMA8452Q gyro;
+int16_t x,y,z;
 
 #if (OVER_THE_AIR_ACTIVATION == 1)
 static uint8_t devEui[8];
@@ -33,7 +43,11 @@ static void taskPeriodicSend(void *) {
 
   f->port = 1;
   f->type = LoRaMacFrame::CONFIRMED;
-  f->len = sprintf((char *) f->buf, "\"Now\":%lu", System.getDateTime());
+  f->len = sprintf(
+    (char *) f->buf,
+    "\"Temp\":%u.%02u,\"Hum\":%u.%02u,\"X\":%d,\"Y\":%d,\"Z\":%d",
+    valTemp / 100, valTemp % 100, valHum / 100, valHum % 100, x, y, z
+  );
 
   /* Uncomment below line to specify frequency. */
   // f->freq = 922500000;
@@ -61,6 +75,8 @@ static void taskPeriodicSend(void *) {
 
   err = LoRaWAN.requestDeviceTime();
   printf("* Request DeviceTime: %d\n", err);
+
+  digitalWrite(LED_LORA, HIGH);
 }
 //! [How to send]
 
@@ -82,10 +98,6 @@ static void eventLoRaWANJoin(
 
   if (joined) {
     Serial.println("* Joining done!");
-
-#if (INIT_CLASS_C == 1)
-    lw.setDeviceClass(LoRaMac::CLASS_C);
-#endif
     postTask(taskPeriodicSend, NULL);
   } else {
     Serial.println("* Joining failed. Retry to join.");
@@ -97,6 +109,7 @@ static void eventLoRaWANJoin(
 
 //! [How to use onSendDone callback]
 static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
+  digitalWrite(LED_LORA, LOW);
   Serial.printf(
     "* Send done(%d): destined for port:%u, fCnt:0x%lX, Freq:%lu Hz, "
     "Power:%d dBm, # of Tx:%u, ",
@@ -481,25 +494,6 @@ static void eventLoRaWANDeviceModeConfigured(LoRaMac &lw, bool success, LoRaMac:
 }
 //! [How to use onDeviceModeConfigured callback]
 
-static void eventLoRaWANDeviceModeIndSent(LoRaMac &lw, LoRaMac::DeviceClass_t newClass) {
-  printf("* LoRaWAN DeviceModeInd sent. [0x%02X]\n", (uint8_t) newClass);
-}
-
-static void eventButtonPressed() {
-  printf("* Button pressed:\n");
-
-  error_t err;
-  if (LoRaWAN.getDeviceClass() == LoRaMac::CLASS_A) {
-    printf("- Change class A to C:");
-    err = LoRaWAN.setDeviceClass(LoRaMac::CLASS_C, true, eventLoRaWANDeviceModeIndSent);
-  } else {
-    printf("- Change class C to A:");
-    err = LoRaWAN.setDeviceClass(LoRaMac::CLASS_A, true, eventLoRaWANDeviceModeIndSent);
-  }
-
-  printf("%d\n", err);
-}
-
 #if (OVER_THE_AIR_ACTIVATION == 1)
 
 static void taskBeginJoin(void *) {
@@ -554,19 +548,58 @@ static void eventKeyInput(SerialPort &) {
 
 #endif //OVER_THE_AIR_ACTIVATION
 
+static void sensorTemperatureRequest(void *) {
+  Serial.println("* Reading sensors...");
+  digitalWrite(LED_SENSE, HIGH);
+  htu20d.readTemperature();
+}
+
+static void sensorTemperatureRead(uint16_t val) {
+  valTemp = val;
+  htu20d.readHumidity();
+}
+
+static void sensorHumidityRead(uint16_t val) {
+  valHum = val;
+
+  gyro.readXYZ(&x, &y, &z);
+  digitalWrite(LED_SENSE, LOW);
+  Serial.println("* Reading sensors done");
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.printf("\n*** [PLM100] LoRaWAN Class A&C Example ***\n");
 
-  // Button to switch between class A and C.
-  pinMode(D9, INPUT);
-  attachInterrupt(D9, eventButtonPressed, FALLING);
+  pinMode(LED_LORA, OUTPUT);
+  digitalWrite(LED_LORA, LOW);
+
+  pinMode(LED_SENSE, OUTPUT);
+  digitalWrite(LED_SENSE, LOW);
+
+  Wire.begin();
+  htu20d.begin(Wire);
+  htu20d.onTemperatureReadDone(sensorTemperatureRead);
+  htu20d.onHumidityReadDone(sensorHumidityRead);
+
+  gyro.begin(Wire, 0x1C, GPIO4, GPIO3);
+  printf("* Gyro ID: 0x%02X (%s)\n",
+          gyro.readSensorId(), gyro.isActive() ? "ON" : "OFF");
+  printf("* Gyro ODR: 0x%X\n", gyro.getODR());
+  gyro.setODR(MMA8452Q::ODR_100Hz);
+  gyro.setStandby();
+  gyro.setActive();
+
+  timerSensor.onFired(sensorTemperatureRequest, nullptr);
+  timerSensor.startPeriodic(1000);
 
   System.setTimeDiff(9 * 60);  // KST
 
   timerSend.onFired(taskPeriodicSend, NULL);
 
-  LoRaWAN.begin();
+  LoRaWAN.begin([]() -> uint8_t {
+    return map(System.getSupplyVoltage(), 2900, 3300, 1, 254); // measured battery level
+  });
 
   //! [How to set onSendDone callback]
   LoRaWAN.onSendDone(eventLoRaWANSendDone);
@@ -654,7 +687,4 @@ void setup() {
   Serial.listen();
 
 #endif //OVER_THE_AIR_ACTIVATION
-
-  pinMode(D4, OUTPUT);
-  digitalWrite(D4, LOW);
 }
