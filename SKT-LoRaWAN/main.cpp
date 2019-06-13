@@ -35,10 +35,11 @@ static void taskPeriodicSend(void *) {
   printf("* Request DeviceTime: %d\n", err);
 
   printf(
-    "* Max payload length: %u - %u = %u\n",
-    LoRaWAN.getMaxPayload(0),
+    "* Max payload length for DR%u: %u - %u = %u\n",
+    LoRaWAN.getCurrentDatarateIndex(),
+    LoRaWAN.getMaxPayload(LoRaWAN.getCurrentDatarateIndex()),
     LoRaWAN.getPendingMacCommandsLength(),
-    LoRaWAN.getMaxPayload(0) - LoRaWAN.getPendingMacCommandsLength()
+    LoRaWAN.getMaxPayload(LoRaWAN.getCurrentDatarateIndex()) - LoRaWAN.getPendingMacCommandsLength()
   );
 
   LoRaMacFrame *f = new LoRaMacFrame(255);
@@ -58,7 +59,7 @@ static void taskPeriodicSend(void *) {
   // LoRaWAN.useADR = false;
   // f->modulation = Radio::MOD_LORA;
   // f->meta.LoRa.bw = Radio::BW_125kHz;
-  // f->meta.LoRa.sf = Radio::SF10;
+  // f->meta.LoRa.sf = Radio::SF12;
   // f->power = 1; /* Index 1 => MaxEIRP - 2 dBm */
 
   /* Uncomment below line to specify number of trials. */

@@ -33,7 +33,6 @@ static const uint8_t AppSKey[] = "\x7a\x56\x2a\x75\xd7\xa3\xbd\x89\xa3\xde\x53\x
 static uint32_t DevAddr = 0x06e632e8;
 #endif //OVER_THE_AIR_ACTIVATION
 
-//! [How to send]
 static void taskPeriodicSend(void *) {
   error_t err = LoRaWAN.requestLinkCheck();
   printf("* Request LinkCheck: %d\n", err);
@@ -42,12 +41,14 @@ static void taskPeriodicSend(void *) {
   printf("* Request DeviceTime: %d\n", err);
 
   printf(
-    "* Max payload length: %u - %u = %u\n",
-    LoRaWAN.getMaxPayload(0),
+    "* Max payload length for DR%u: %u - %u = %u\n",
+    LoRaWAN.getCurrentDatarateIndex(),
+    LoRaWAN.getMaxPayload(LoRaWAN.getCurrentDatarateIndex()),
     LoRaWAN.getPendingMacCommandsLength(),
-    LoRaWAN.getMaxPayload(0) - LoRaWAN.getPendingMacCommandsLength()
+    LoRaWAN.getMaxPayload(LoRaWAN.getCurrentDatarateIndex()) - LoRaWAN.getPendingMacCommandsLength()
   );
 
+  //! [How to send]
   LoRaMacFrame *f = new LoRaMacFrame(255);
   if (!f) {
     printf("* Out of memory\n");
@@ -69,7 +70,7 @@ static void taskPeriodicSend(void *) {
   // LoRaWAN.useADR = false;
   // f->modulation = Radio::MOD_LORA;
   // f->meta.LoRa.bw = Radio::BW_125kHz;
-  // f->meta.LoRa.sf = Radio::SF7;
+  // f->meta.LoRa.sf = Radio::SF12;
   // f->power = 1; /* Index 1 => MaxEIRP - 2 dBm */
 
   /* Uncomment below line to specify number of trials. */
@@ -82,10 +83,10 @@ static void taskPeriodicSend(void *) {
     timerSend.startOneShot(INTERVAL_SEND);
     return;
   }
+  //! [How to send]
 
   digitalWrite(LED_LORA, HIGH);
 }
-//! [How to send]
 
 #if (OVER_THE_AIR_ACTIVATION == 1)
 //! [How to use onJoin callback]
