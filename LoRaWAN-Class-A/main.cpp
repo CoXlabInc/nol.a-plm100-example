@@ -35,6 +35,19 @@ static uint32_t DevAddr = 0x06e632e8;
 
 //! [How to send]
 static void taskPeriodicSend(void *) {
+  error_t err = LoRaWAN.requestLinkCheck();
+  printf("* Request LinkCheck: %d\n", err);
+
+  err = LoRaWAN.requestDeviceTime();
+  printf("* Request DeviceTime: %d\n", err);
+
+  printf(
+    "* Max payload length: %u - %u = %u\n",
+    LoRaWAN.getMaxPayload(0),
+    LoRaWAN.getPendingMacCommandsLength(),
+    LoRaWAN.getMaxPayload(0) - LoRaWAN.getPendingMacCommandsLength()
+  );
+
   LoRaMacFrame *f = new LoRaMacFrame(255);
   if (!f) {
     printf("* Out of memory\n");
@@ -62,19 +75,13 @@ static void taskPeriodicSend(void *) {
   /* Uncomment below line to specify number of trials. */
   // f->numTrials = 1;
 
-  error_t err = LoRaWAN.send(f);
+  err = LoRaWAN.send(f);
   printf("* Sending periodic report (%s (%u byte)): %d\n", f->buf, f->len, err);
   if (err != ERROR_SUCCESS) {
     delete f;
     timerSend.startOneShot(INTERVAL_SEND);
     return;
   }
-
-  err = LoRaWAN.requestLinkCheck();
-  printf("* Request LinkCheck: %d\n", err);
-
-  err = LoRaWAN.requestDeviceTime();
-  printf("* Request DeviceTime: %d\n", err);
 
   digitalWrite(LED_LORA, HIGH);
 }
