@@ -4,6 +4,7 @@
 #define OVER_THE_AIR_ACTIVATION 1
 #define LED_LORA  GPIO1
 #define LED_SENSE GPIO2
+#define SEND_SENSING_DATA
 
 #include <LoRaMacKR920.hpp>
 #include <dev/HTU20D.hpp>
@@ -57,11 +58,15 @@ static void taskPeriodicSend(void *) {
 
   f->port = 1;
   f->type = LoRaMacFrame::CONFIRMED;
+  #ifdef SEND_SENSING_DATA
   f->len = sprintf(
     (char *) f->buf,
     "\"Temp\":%u.%02u,\"Hum\":%u.%02u,\"X\":%d,\"Y\":%d,\"Z\":%d",
     valTemp / 100, valTemp % 100, valHum / 100, valHum % 100, x, y, z
   );
+  #else
+  f->len = sprintf((char *) f->buf, "test");
+  #endif
 
   /* Uncomment below line to specify frequency. */
   // f->freq = 922500000;
@@ -556,6 +561,7 @@ static void eventKeyInput(SerialPort &) {
 
 #endif //OVER_THE_AIR_ACTIVATION
 
+#ifdef SEND_SENSING_DATA
 static void sensorTemperatureRequest(void *) {
   Serial.println("* Reading sensors...");
   digitalWrite(LED_SENSE, HIGH);
@@ -574,6 +580,7 @@ static void sensorHumidityRead(uint16_t val) {
   digitalWrite(LED_SENSE, LOW);
   Serial.println("* Reading sensors done");
 }
+#endif
 
 void setup() {
   Serial.begin(115200);
@@ -585,6 +592,7 @@ void setup() {
   pinMode(LED_SENSE, OUTPUT);
   digitalWrite(LED_SENSE, LOW);
 
+#ifdef SEND_SENSING_DATA
   Wire.begin();
   htu20d.begin(Wire);
   htu20d.onTemperatureReadDone(sensorTemperatureRead);
@@ -600,6 +608,7 @@ void setup() {
 
   timerSensor.onFired(sensorTemperatureRequest, nullptr);
   timerSensor.startPeriodic(1000);
+#endif
 
   System.setTimeDiff(9 * 60);  // KST
 
