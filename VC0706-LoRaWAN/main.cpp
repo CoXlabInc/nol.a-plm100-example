@@ -2,25 +2,82 @@
 #include <LoRaMacKR920.hpp>
 #include <dev/Adafruit_VC0706.hpp>
 #include <algorithm>
+#include "LoRaMacFragmentFrame.hpp"
 
 LoRaMacKR920 LoRaWAN(SX1276, 10);
 Adafruit_VC0706 cam(Serial2);
 Timer timerSnap;
 char keyBuf[128];
 Timer timerKeyInput;
-Timer timerPullDownlink;
+Timer timerTimeout;
 
 static uint8_t devEui[8];
 static const uint8_t appEui[] = "\x00\x00\x00\x00\x00\x00\x00\x00";
 static uint8_t appKey[16];
 static uint16_t imgSize = 0;
-static uint32_t imgSent = 0;
+static uint8_t reassemblyId[4];
+static uint8_t *reassemblyBitmap = nullptr;
+static uint8_t reassemblyBitmapLength = 0;
 
 enum {
   STATE_IDLE,
   STATE_START_FRAG,
   STATE_SEND_FRAGS,
+  STATE_CHECK_FRAG,
 } state = STATE_IDLE;
+
+enum MsgType_t {
+  MSG_NEW_REASSEMBLY = 0,
+  MSG_REASSEMBLY_DONE = 1,
+  MSG_REASSEMBLY_BITMAP = 2,
+};
+
+static void initState() {
+  timerTimeout.stop();
+  if (reassemblyBitmap) {
+    delete reassemblyBitmap;
+    reassemblyBitmap = nullptr;
+  }
+  reassemblyBitmapLength = 0;
+  state = STATE_IDLE;
+  imgSize = 0;
+}
+
+static int32_t getNextOffset(uint8_t *maxlen) {
+  int32_t start = -1;
+  uint16_t len = 0;
+  for (uint8_t i = 0; i < reassemblyBitmapLength; i++) {
+    for (uint8_t j = 0; j < 8; j++) {
+      uint16_t fragOffset = (i * 8 + j) * 32;
+      bool isLastFrag = (fragOffset + 32 > imgSize);
+      uint8_t fragLen = isLastFrag ? (imgSize - fragOffset) : 32;
+
+      if (bitRead(reassemblyBitmap[i], 7 - j) == 0) {
+        if (start < 0) {
+          start = fragOffset;
+        }
+
+        if (len + fragLen > *maxlen) {
+          break;
+        } else {
+          len += fragLen;
+          bitSet(reassemblyBitmap[i], 7 - j);
+        }
+      } else {
+        if (start >= 0) {
+          break;
+        }
+
+        if (isLastFrag) {
+          break;
+        }
+      }
+    }
+  }
+
+  *maxlen = len;
+  return start;
+}
 
 static void takePicture(void *) {
   cam.resumeVideo();
@@ -34,7 +91,6 @@ static void takePicture(void *) {
 
   imgSize = cam.frameLength();
   printf("- Picture taken! (%u byte)\n", imgSize);
-  imgSent = 0;
 
   error_t err = LoRaWAN.requestLinkCheck();
   printf("- Request LinkCheck: %d\n", err);
@@ -77,6 +133,61 @@ static void takePicture(void *) {
   }
 
   state = STATE_START_FRAG;
+  timerTimeout.startOneShot(60000);
+}
+
+static int32_t sendFragment() {
+  // Decide how many 32-byte chunks should be transferred at once.
+  printf(
+    "- Max payload length for DR%u: %u\n",
+    LoRaWAN.getCurrentDatarateIndex(),
+    LoRaWAN.getMaxPayload(LoRaWAN.getCurrentDatarateIndex())
+  );
+
+  state = STATE_SEND_FRAGS;
+
+  uint8_t bytesToRead = std::min(LoRaWAN.getMaxPayload(LoRaWAN.getCurrentDatarateIndex()) / 32 * 32, 64);
+  int32_t nextOffset = getNextOffset(&bytesToRead);
+  if (nextOffset < 0) {
+    printf("- Nothing to send.\n");
+    return nextOffset;
+  }
+
+  printf(
+    "- Send fragment (%u~%u / %u)\n",
+    (uint16_t) nextOffset, ((uint16_t) nextOffset + bytesToRead), imgSize
+  );
+
+  LoRaMacFragmentFrame *f = new LoRaMacFragmentFrame(reassemblyId, (uint16_t) nextOffset, bytesToRead);
+  if (!f) {
+    printf("- Out of memory\n");
+    timerTimeout.stop();
+    initState();
+    timerSnap.startOneShot(5000);
+    return -1;
+  }
+
+  f->type = LoRaMacFrame::PROPRIETARY;
+
+
+  const uint8_t *buf;
+  do {
+    printf("- Reading picture...\n");
+    buf = cam.readPicture(bytesToRead, nextOffset);
+  } while (!buf);
+  f->setBuffer(0, buf, bytesToRead);
+
+  error_t err = LoRaWAN.send(f);
+  printf("- Sending frag #%u: %d\n", ((uint16_t) nextOffset / 32), err);
+  if (err != ERROR_SUCCESS) {
+    delete f;
+    timerTimeout.stop();
+    initState();
+    timerSnap.startOneShot(5000);
+    return -1;
+  }
+
+  return nextOffset;
 }
 
 static void taskBeginJoin(void *) {
@@ -96,7 +207,7 @@ static void eventAppKeyInput(SerialPort &) {
       strOctet[1] = keyBuf[2 * j + 1];
       strOctet[2] = '\0';
 
-      appKey[j] = strtoul(strOctet, NULL, 16);
+      appKey[j] = strtoul(strOctet, nullptr, 16);
     }
 
     printf("- New AppKey:");
@@ -152,18 +263,60 @@ void setup() {
     frame->printTo(Serial);
     Serial.println();
 
+    // bool success = (frame->result == RadioPacket::SUCCESS);
     delete frame;
-    if (state == STATE_START_FRAG) {
 
-      LoRaMacFrame *emptyFrame = new LoRaMacFrame(0);
-      if (emptyFrame) {
-        error_t err = LoRaWAN.send(emptyFrame);
-        if (err != ERROR_SUCCESS) {
-          printf("- Error on sending empty frame (%d)\n", err);
-          delete emptyFrame;
-          state = STATE_IDLE;
-          timerSnap.startOneShot(5000);
+    if (state == STATE_START_FRAG || state == STATE_CHECK_FRAG) {
+      // if (success) {
+        LoRaMacFrame *emptyFrame = new LoRaMacFrame(0);
+        if (emptyFrame) {
+          error_t err = LoRaWAN.send(emptyFrame);
+          if (err != ERROR_SUCCESS) {
+            printf("- Error on sending empty frame (%d)\n", err);
+            delete emptyFrame;
+            timerTimeout.stop();
+            initState();
+            timerSnap.startOneShot(5000);
+          }
         }
+      // } else {
+      //   printf("- Send failed\n");
+      //   initState();
+      //   postTask(takePicture, nullptr);
+      // }
+    } else if (state == STATE_SEND_FRAGS && frame->type == LoRaMacFrame::PROPRIETARY) {
+      if (sendFragment() < 0) {
+        printf("- Sending image done.\n");
+
+        LoRaMacFrame *f = new LoRaMacFrame(255);
+        if (!f) {
+          printf("- Out of memory\n");
+          initState();
+          timerSnap.startOneShot(5000);
+          return;
+        }
+
+        f->port = 223;
+        f->type = LoRaMacFrame::CONFIRMED;
+        f->len = sprintf(
+          (char *) f->buf,
+          "\"type\":\"fragcheck\","
+          "\"reassemblyId\":\"%02x%02x%02x%02x\"",
+          reassemblyId[0], reassemblyId[1], reassemblyId[2], reassemblyId[3]
+        );
+
+        error_t err = LoRaWAN.send(f);
+        printf("- Sending frag check [ %s ] (%u byte): %d\n", (char *) f->buf, f->len, err);
+        if (err != ERROR_SUCCESS) {
+          delete f;
+          initState();
+          timerSnap.startOneShot(5000);
+          return;
+        }
+
+        timerTimeout.stop();
+        state = STATE_CHECK_FRAG;
+        timerTimeout.startOneShot(60000);
       }
     }
 
@@ -224,37 +377,67 @@ void setup() {
 
     if (frame->port == 223) {
       if (state == STATE_START_FRAG) {
-        if (frame->len == 4) {
-          state = STATE_SEND_FRAGS;
-          uint32_t reassemblyId = (
-            ((uint32_t) frame->buf[0] << 24) |
-            ((uint32_t) frame->buf[1] << 16) |
-            ((uint32_t) frame->buf[2] << 8) |
-            ((uint32_t) frame->buf[3] << 0)
+        if (frame->len == 1 + 4 && frame->buf[0] == MSG_NEW_REASSEMBLY) {
+          timerTimeout.stop();
+          reassemblyId[0] = frame->buf[1];
+          reassemblyId[1] = frame->buf[2];
+          reassemblyId[2] = frame->buf[3];
+          reassemblyId[3] = frame->buf[4];
+          printf(
+            "- Reassembly ID: %02X %02X %02X %02X\n",
+            reassemblyId[0], reassemblyId[1], reassemblyId[2], reassemblyId[3]
           );
-          printf("- Reassembly ID: 0x%08lX\n", reassemblyId);
+
+          reassemblyBitmapLength = (imgSize / (32 * 8)) + ((imgSize % (32 * 8) == 0) ? 0 : 1);
+          reassemblyBitmap = new uint8_t[reassemblyBitmapLength];
+          if (!reassemblyBitmap) {
+            printf("- Not enough memory for reassemblyBitmap\n");
+            initState();
+            timerSnap.startOneShot(5000);
+          }
+          sendFragment();
         } else {
-          printf("- In START_FRAG state, only waits for a 4-byte reassembly ID.");
+          printf("- In START_FRAG state, only waits for MSG_NEW_REASSEMBLY.");
         }
-      } else {
+      } else if (
+        state == STATE_CHECK_FRAG && frame->len >= 5
+        && frame->buf[1] == reassemblyId[0]
+        && frame->buf[2] == reassemblyId[1]
+        && frame->buf[3] == reassemblyId[2]
+        && frame->buf[4] == reassemblyId[3]
+      ) {
+        if (frame->buf[0] == MSG_REASSEMBLY_DONE && frame->len == 5) {
+          printf("- All reassembly done. Snap after 5 seconds.\n");
+          initState();
+          timerSnap.startOneShot(5000);
+        } else if (frame->buf[0] == MSG_REASSEMBLY_BITMAP) {
+          if (reassemblyBitmapLength != frame->len - 5) {
+            printf("- BITMAP LENGTH is DIFFERENT from my expect!!\n");
+            initState();
+            timerSnap.startOneShot(5000);
+            return;
+          }
 
+          memcpy(reassemblyBitmap, &frame->buf[5], reassemblyBitmapLength);
+          sendFragment();
+        }
       }
     }
 
-    if (
-      (frame->type == LoRaMacFrame::CONFIRMED || lw.framePending) &&
-      lw.getNumPendingSendFrames() == 0
-    ) {
-      printf("- More frame pending.\n");
-      // If there is no pending send frames, send an empty frame to ack or pull more frames.
-      LoRaMacFrame *emptyFrame = new LoRaMacFrame(0);
-      if (emptyFrame) {
-        error_t err = LoRaWAN.send(emptyFrame);
-        if (err != ERROR_SUCCESS) {
-          delete emptyFrame;
-        }
-      }
-    }
+    // if (
+    //   (frame->type == LoRaMacFrame::CONFIRMED || lw.framePending) &&
+    //   lw.getNumPendingSendFrames() == 0
+    // ) {
+    //   printf("- More frame pending.\n");
+    //   // If there is no pending send frames, send an empty frame to ack or pull more frames.
+    //   LoRaMacFrame *emptyFrame = new LoRaMacFrame(0);
+    //   if (emptyFrame) {
+    //     error_t err = LoRaWAN.send(emptyFrame);
+    //     if (err != ERROR_SUCCESS) {
+    //       delete emptyFrame;
+    //     }
+    //   }
+    // }
   });
 
   LoRaWAN.onJoin([](
@@ -353,4 +536,10 @@ void setup() {
   Serial.listen();
 
   timerSnap.onFired(takePicture, nullptr);
+
+  timerTimeout.onFired([](void *) {
+    printf("- Reply timeout. Re-snap after 5 seconds.\n");
+    initState();
+    timerSnap.startOneShot(5000);
+  }, nullptr);
 }
