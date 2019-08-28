@@ -146,7 +146,10 @@ static int32_t sendFragment() {
 
   state = STATE_SEND_FRAGS;
 
-  uint8_t bytesToRead = std::min(LoRaWAN.getMaxPayload(LoRaWAN.getCurrentDatarateIndex()) / 32 * 32, 64);
+  uint8_t bytesToRead = (
+    (LoRaWAN.getMaxPayload(LoRaWAN.getCurrentDatarateIndex()) - 1 /* MHDR */ - 6 /* Frag overhead */)
+    / 32 * 32
+  );
   int32_t nextOffset = getNextOffset(&bytesToRead);
   if (nextOffset < 0) {
     printf("- Nothing to send.\n");
@@ -169,13 +172,17 @@ static int32_t sendFragment() {
 
   f->type = LoRaMacFrame::PROPRIETARY;
 
-
-  const uint8_t *buf;
-  do {
-    printf("- Reading picture...\n");
-    buf = cam.readPicture(bytesToRead, nextOffset);
-  } while (!buf);
-  f->setBuffer(0, buf, bytesToRead);
+  uint8_t readCam = 0;
+  while (readCam < bytesToRead) {
+    const uint8_t *buf;
+    uint8_t r = std::min(32, bytesToRead - readCam);
+    do {
+      printf("- (%u) Reading picture...\n", readCam);
+      buf = cam.readPicture(r, nextOffset + readCam);
+    } while (!buf);
+    f->setBuffer(readCam, buf, r);
+    readCam += r;
+  }
 
   error_t err = LoRaWAN.send(f);
   printf("- Sending frag #%u: %d\n", ((uint16_t) nextOffset / 32), err);
