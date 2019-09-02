@@ -1,10 +1,12 @@
 #include <cox.h>
+#include <algorithm>
 
 #define INTERVAL_SEND 5000
 #define OVER_THE_AIR_ACTIVATION 1
 #define LED_LORA  GPIO1
 #define LED_SENSE GPIO2
 #define SEND_SENSING_DATA
+#define DO_NOT_EDIT_APPKEY
 
 #include <LoRaMacKR920.hpp>
 #include <dev/HTU20D.hpp>
@@ -170,7 +172,7 @@ static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
       "air busy",
       "Tx timeout",
     };
-    Serial.printf("- [%u] %s\n", t, strTxResult[min(frame->txResult[t], 4)]);
+    Serial.printf("- [%u] %s\n", t, strTxResult[std::min((int) frame->txResult[t], 4)]);
   }
   delete frame;
 
@@ -199,7 +201,7 @@ static void eventLoRaWANReceive(LoRaMac &lw, const LoRaMacFrame *frame) {
     };
     Serial.printf(
       ", LoRa, SF:%u, BW:%s",
-      frame->meta.LoRa.sf, strBW[min(frame->meta.LoRa.bw, 4)]
+      frame->meta.LoRa.sf, strBW[std::min((int) frame->meta.LoRa.bw, 4)]
     );
   } else if (frame->modulation == Radio::MOD_FSK) {
     Serial.printf(", FSK");
@@ -285,7 +287,7 @@ static void printChannelInformation(LoRaMac &lw) {
     printf(
       "(LoRa SF%u BW:%s)\n",
       dr->param.LoRa.sf,
-      strBW[min(dr->param.LoRa.bw, 4)]
+      strBW[std::min((int) dr->param.LoRa.bw, 4)]
     );
   } else if (dr->mod == Radio::MOD_FSK) {
     printf("(FSK)\n");
@@ -686,6 +688,9 @@ void setup() {
     appKey[12], appKey[13], appKey[14], appKey[15]
   );
 
+#ifdef DO_NOT_EDIT_APPKEY
+  postTask(taskBeginJoin, nullptr);
+#else
   if (memcmp(appKey, "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF", 16) == 0) {
     /* The appKey is required to be entered by user.*/
     Serial.onReceive(eventAppKeyInput);
@@ -700,6 +705,7 @@ void setup() {
     timerKeyInput.startOneShot(3000);
     Serial.onReceive(eventKeyInput);
   }
+#endif
 
   Serial.listen();
 
