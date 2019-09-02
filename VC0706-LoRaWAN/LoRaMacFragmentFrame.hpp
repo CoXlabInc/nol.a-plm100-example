@@ -22,4 +22,8 @@ public:
   void setBuffer(uint8_t offset, const uint8_t *src, uint8_t len) {
     memcpy(&this->buf[6 + offset], src, len);
   }
+
+  const uint8_t *getBuffer(uint8_t offset) {
+    return &this->buf[6 + offset];
+  }
 };

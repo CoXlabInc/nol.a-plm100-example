@@ -46,10 +46,12 @@ static void initState() {
 static int32_t getNextOffset(uint8_t *maxlen) {
   int32_t start = -1;
   uint16_t len = 0;
+  printf("* Finding offset to send next...\n");
   for (uint8_t i = 0; i < reassemblyBitmapLength; i++) {
+    bool isLastFrag = false;
     for (uint8_t j = 0; j < 8; j++) {
       uint16_t fragOffset = (i * 8 + j) * 32;
-      bool isLastFrag = (fragOffset + 32 > imgSize);
+      isLastFrag = (fragOffset + 32 >= imgSize);
       uint8_t fragLen = isLastFrag ? (imgSize - fragOffset) : 32;
 
       if (bitRead(reassemblyBitmap[i], 7 - j) == 0) {
@@ -58,7 +60,8 @@ static int32_t getNextOffset(uint8_t *maxlen) {
         }
 
         if (len + fragLen > *maxlen) {
-          break;
+          *maxlen = len;
+          return start;
         } else {
           len += fragLen;
           bitSet(reassemblyBitmap[i], 7 - j);
@@ -69,7 +72,8 @@ static int32_t getNextOffset(uint8_t *maxlen) {
         }
 
         if (isLastFrag) {
-          break;
+          *maxlen = len;
+          return start;
         }
       }
     }
@@ -85,12 +89,17 @@ static void takePicture(void *) {
 
   if (!cam.takePicture()) {
     printf("- Failed to snap!\n");
-    timerSnap.startOneShot(5000);
+    postTask(takePicture);
     return;
   }
 
   imgSize = cam.frameLength();
   printf("- Picture taken! (%u byte)\n", imgSize);
+  if (imgSize == 0) {
+    printf("- Failed to snap!\n");
+    postTask(takePicture);
+    return;
+  }
 
   error_t err = LoRaWAN.requestLinkCheck();
   printf("- Request LinkCheck: %d\n", err);
@@ -152,7 +161,11 @@ static int32_t sendFragment() {
   );
   int32_t nextOffset = getNextOffset(&bytesToRead);
   if (nextOffset < 0) {
-    printf("- Nothing to send.\n");
+    printf("- Nothing to send:");
+    for (uint8_t i = 0; i < reassemblyBitmapLength; i++) {
+      printf(" %02X", reassemblyBitmap[i]);
+    }
+    printf("\n");
     return nextOffset;
   }
 
@@ -174,14 +187,28 @@ static int32_t sendFragment() {
 
   uint8_t readCam = 0;
   while (readCam < bytesToRead) {
-    const uint8_t *buf;
-    uint8_t r = std::min(32, bytesToRead - readCam);
-    do {
-      printf("- (%u) Reading picture...\n", readCam);
-      buf = cam.readPicture(r, nextOffset + readCam);
-    } while (!buf);
-    f->setBuffer(readCam, buf, r);
-    readCam += r;
+    bool verified = false;
+    uint8_t r = std::min(64, bytesToRead - readCam);
+
+    for (uint8_t i = 0; i < 2; i++) {
+      const uint8_t *buf;
+      do {
+        printf("- (%u) Reading picture...\n", readCam);
+        buf = cam.readPicture(r, nextOffset + readCam);
+      } while (!buf);
+
+      if (i == 0) {
+        f->setBuffer(readCam, buf, r);
+      } else if (i == 1) {
+        if (memcmp(f->getBuffer(readCam), buf, r) == 0) {
+          verified = true;
+        }
+      }
+    }
+
+    if (verified) {
+      readCam += r;
+    }
   }
 
   error_t err = LoRaWAN.send(f);
@@ -270,11 +297,11 @@ void setup() {
     frame->printTo(Serial);
     Serial.println();
 
-    // bool success = (frame->result == RadioPacket::SUCCESS);
+    bool success = (frame->result == RadioPacket::SUCCESS);
     delete frame;
 
     if (state == STATE_START_FRAG || state == STATE_CHECK_FRAG) {
-      // if (success) {
+      if (success) {
         LoRaMacFrame *emptyFrame = new LoRaMacFrame(0);
         if (emptyFrame) {
           error_t err = LoRaWAN.send(emptyFrame);
@@ -286,11 +313,11 @@ void setup() {
             timerSnap.startOneShot(5000);
           }
         }
-      // } else {
-      //   printf("- Send failed\n");
-      //   initState();
-      //   postTask(takePicture, nullptr);
-      // }
+      } else {
+        printf("- Send failed\n");
+        initState();
+        postTask(takePicture, nullptr);
+      }
     } else if (state == STATE_SEND_FRAGS && frame->type == LoRaMacFrame::PROPRIETARY) {
       if (sendFragment() < 0) {
         printf("- Sending image done.\n");
@@ -402,6 +429,7 @@ void setup() {
             initState();
             timerSnap.startOneShot(5000);
           }
+          memset(reassemblyBitmap, 0, reassemblyBitmapLength);
           sendFragment();
         } else {
           printf("- In START_FRAG state, only waits for MSG_NEW_REASSEMBLY.");
