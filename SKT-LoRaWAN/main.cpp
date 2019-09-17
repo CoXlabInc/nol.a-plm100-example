@@ -1,4 +1,5 @@
 #include <cox.h>
+#include <algorithm>
 
 #define INTERVAL_SEND 20000
 #define OVER_THE_AIR_ACTIVATION 1
@@ -113,55 +114,9 @@ static void eventLoRaWANJoin(
 #endif //OVER_THE_AIR_ACTIVATION
 
 static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
-  Serial.printf(
-    "* Send done(%d): destined for port:%u, fCnt:0x%lX, Freq:%lu Hz, "
-    "Power:%d dBm, # of Tx:%u, ",
-    frame->result,
-    frame->port,
-    frame->fCnt,
-    frame->freq,
-    frame->power,
-    frame->numTrials
-  );
-
-  if (frame->modulation == Radio::MOD_LORA) {
-    const char *strBW[] = {
-      "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value"
-    };
-    if (frame->meta.LoRa.bw > 3) {
-      frame->meta.LoRa.bw = (Radio::LoRaBW_t) 4;
-    }
-    Serial.printf(
-      "LoRa, SF:%u, BW:%s, ", frame->meta.LoRa.sf, strBW[frame->meta.LoRa.bw]
-    );
-  } else if (frame->modulation == Radio::MOD_FSK) {
-    Serial.printf("FSK, ");
-  } else {
-    Serial.printf("Unkndown modulation, ");
-  }
-  if (frame->type == LoRaMacFrame::UNCONFIRMED) {
-    Serial.printf("UNCONFIRMED");
-  } else if (frame->type == LoRaMacFrame::CONFIRMED) {
-    Serial.printf("CONFIRMED");
-  } else if (frame->type == LoRaMacFrame::MULTICAST) {
-    Serial.printf("MULTICAST (error)");
-  } else if (frame->type == LoRaMacFrame::PROPRIETARY) {
-    Serial.printf("PROPRIETARY");
-  } else {
-    Serial.printf("unknown type");
-  }
-  Serial.printf(" frame\n");
-
-  for (uint8_t t = 0; t < frame->numTrials; t++) {
-    const char *strTxResult[] = {
-      "not started",
-      "success",
-      "no ack",
-      "air busy",
-      "Tx timeout",
-    };
-    Serial.printf("- [%u] %s\n", t, strTxResult[min(frame->txResult[t], 4)]);
-  }
+  Serial.printf("* Send done(%d): ");
+  frame->printTo(Serial);
+  Serial.println();
   delete frame;
 
   timerSend.startOneShot(INTERVAL_SEND);
@@ -170,46 +125,13 @@ static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
 static void eventLoRaWANReceive(LoRaMac &lw, const LoRaMacFrame *frame) {
   static uint32_t fCntDownPrev = 0;
 
-  Serial.printf(
-    "* Received a frame. Destined for port:%u, fCnt:0x%X",
-    frame->port, frame->fCnt
-  );
-
-  if (fCntDownPrev != 0 && fCntDownPrev == frame->fCnt) {
-    Serial.print(" (duplicate)");
-  }
-  fCntDownPrev = frame->fCnt;
-  Serial.printf(", Freq:%lu Hz, RSSI:%d dB", frame->freq, frame->power);
-
-  if (frame->modulation == Radio::MOD_LORA) {
-    const char *strBW[] = {
-      "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value"
-    };
-    Serial.printf(
-      ", LoRa, SF:%u, BW:%s",
-      frame->meta.LoRa.sf, strBW[min(frame->meta.LoRa.bw, 4)]
-    );
-  } else if (frame->modulation == Radio::MOD_FSK) {
-    Serial.printf(", FSK");
-  } else {
-    Serial.printf(", Unkndown modulation");
-  }
-  if (frame->type == LoRaMacFrame::UNCONFIRMED) {
-    Serial.printf(", Type:UNCONFIRMED,");
-  } else if (frame->type == LoRaMacFrame::CONFIRMED) {
-    Serial.printf(", Type:CONFIRMED,");
-  } else if (frame->type == LoRaMacFrame::MULTICAST) {
-    Serial.printf(", Type:MULTICAST,");
-  } else if (frame->type == LoRaMacFrame::PROPRIETARY) {
-    Serial.printf(", Type:PROPRIETARY,");
-  } else {
-    Serial.printf(", unknown type,");
-  }
-
+  Serial.printf("* Received a frame:");
   for (uint8_t i = 0; i < frame->len; i++) {
     Serial.printf(" %02X", frame->buf[i]);
   }
-  Serial.printf(" (%u byte)\n", frame->len);
+  Serial.printf(" (");
+  frame->printTo(Serial);
+  Serial.printf(")\n");
 
   if (
     (frame->type == LoRaMacFrame::CONFIRMED || lw.framePending) &&
@@ -270,11 +192,13 @@ static void printChannelInformation(LoRaMac &lw) {
     const char *strBW[] = {
       "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value"
     };
-    printf(
-      "(LoRa SF%u BW:%s)\n",
-      dr->param.LoRa.sf,
-      strBW[min(dr->param.LoRa.bw, 4)]
-    );
+    printf("(LoRa SF%u BW:", dr->param.LoRa.sf);
+    switch (dr->param.LoRa.bw) {
+    case Radio::BW_125kHz: printf("125kHz\n"); break;
+    case Radio::BW_250kHz: printf("250kHz\n"); break;
+    case Radio::BW_500kHz: printf("500kHz\n"); break;
+    default: printf("(unexpected:%u)\n", dr->param.LoRa.bw); break;
+    }
   } else if (dr->mod == Radio::MOD_FSK) {
     printf("(FSK)\n");
   } else {
