@@ -4,6 +4,8 @@
 #include <algorithm>
 #include "LoRaMacFragmentFrame.hpp"
 
+#define DO_NOT_EDIT_APPKEY
+
 LoRaMacKR920 LoRaWAN(SX1276, 10);
 Adafruit_VC0706 cam(Serial2);
 Timer timerSnap;
@@ -230,6 +232,7 @@ static void taskBeginJoin(void *) {
   LoRaWAN.beginJoining(devEui, appEui, appKey);
 }
 
+#ifndef DO_NOT_EDIT_APPKEY
 static void eventAppKeyInput(SerialPort &) {
   uint8_t numOctets = strlen(keyBuf);
   if (numOctets == 32) {
@@ -258,6 +261,7 @@ static void eventAppKeyInput(SerialPort &) {
 
   Serial.inputKeyboard(keyBuf, sizeof(keyBuf) - 1);
 }
+#endif //!DO_NOT_EDIT_APPKEY
 
 void setup() {
   Serial.begin(115200);
@@ -353,51 +357,6 @@ void setup() {
         timerTimeout.startOneShot(60000);
       }
     }
-
-  // while (jpgSize > 0) {
-  //   uint8_t bytesToRead = std::min(64, (int) jpgSize);
-  //   const uint8_t *buf = cam.readPicture(bytesToRead);
-  //   for (uint8_t i = 0; i < bytesToRead; i++) {
-  //     printf(" %02X", buf[i]);
-  //   }
-  //   jpgSize -= bytesToRead;
-  //   System.feedWatchdog();
-  // }
-
-    //
-    //
-    // switch(frame->modulation) {
-    //   case Radio::MOD_LORA: {
-    //     const char *strBW[] = { "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value" };
-    //     if (frame->meta.LoRa.bw > 3) {
-    //       frame->meta.LoRa.bw = (Radio::LoRaBW_t) 4;
-    //     }
-    //     printf("LoRa, SF:%u, BW:%s, ", frame->meta.LoRa.sf, strBW[frame->meta.LoRa.bw]);
-    //     break;
-    //   }
-    //   case Radio::MOD_FSK: printf("FSK, "); break;
-    //   default: printf("Unkndown modulation, "); break;
-    // }
-    //
-    // switch (frame->type) {
-    //   case LoRaMacFrame::UNCONFIRMED: printf("UNCONFIRMED"); break;
-    //   case LoRaMacFrame::CONFIRMED: printf("CONFIRMED"); break;
-    //   case LoRaMacFrame::MULTICAST: printf("MULTICAST (error)"); break;
-    //   case LoRaMacFrame::PROPRIETARY: printf("PROPRIETARY"); break;
-    //   default: printf("unknown type"); break;
-    // }
-    // printf(" frame\n");
-    //
-    // for (uint8_t t = 0; t < frame->numTrials; t++) {
-    //   const char *strTxResult[] = {
-    //     "not started",
-    //     "success",
-    //     "no ack",
-    //     "air busy",
-    //     "Tx timeout",
-    //   };
-    //   printf("- [%u] %s\n", t, strTxResult[min(frame->txResult[t], 4)]);
-    // }
   });
 
   LoRaWAN.onReceive([](LoRaMac &lw, const LoRaMacFrame *frame) {
@@ -442,9 +401,9 @@ void setup() {
         && frame->buf[4] == reassemblyId[3]
       ) {
         if (frame->buf[0] == MSG_REASSEMBLY_DONE && frame->len == 5) {
-          printf("- All reassembly done. Snap after 5 seconds.\n");
+          printf("- All reassembly done.\n");
           initState();
-          timerSnap.startOneShot(5000);
+          postTask(takePicture, nullptr);
         } else if (frame->buf[0] == MSG_REASSEMBLY_BITMAP) {
           if (reassemblyBitmapLength != frame->len - 5) {
             printf("- BITMAP LENGTH is DIFFERENT from my expect!!\n");
@@ -458,21 +417,6 @@ void setup() {
         }
       }
     }
-
-    // if (
-    //   (frame->type == LoRaMacFrame::CONFIRMED || lw.framePending) &&
-    //   lw.getNumPendingSendFrames() == 0
-    // ) {
-    //   printf("- More frame pending.\n");
-    //   // If there is no pending send frames, send an empty frame to ack or pull more frames.
-    //   LoRaMacFrame *emptyFrame = new LoRaMacFrame(0);
-    //   if (emptyFrame) {
-    //     error_t err = LoRaWAN.send(emptyFrame);
-    //     if (err != ERROR_SUCCESS) {
-    //       delete emptyFrame;
-    //     }
-    //   }
-    // }
   });
 
   LoRaWAN.onJoin([](
@@ -547,6 +491,9 @@ void setup() {
     appKey[12], appKey[13], appKey[14], appKey[15]
   );
 
+#ifdef DO_NOT_EDIT_APPKEY
+  postTask(taskBeginJoin, nullptr);
+#else //!DO_NOT_EDIT_APPKEY
   if (memcmp(appKey, "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF", 16) == 0) {
     /* The appKey is required to be entered by user.*/
     Serial.onReceive(eventAppKeyInput);
@@ -569,7 +516,7 @@ void setup() {
   }
 
   Serial.listen();
-
+#endif //!DO_NOT_EDIT_APPKEY
   timerSnap.onFired(takePicture, nullptr);
 
   timerTimeout.onFired([](void *) {
