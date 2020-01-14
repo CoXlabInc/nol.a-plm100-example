@@ -5,8 +5,8 @@
 #define OVER_THE_AIR_ACTIVATION 1
 #define LED_LORA  GPIO1
 #define LED_SENSE GPIO2
-#define SEND_SENSING_DATA
-#define DO_NOT_EDIT_APPKEY
+//#define SEND_SENSING_DATA
+//#define DO_NOT_EDIT_APPKEY
 
 #include <LoRaMacKR920.hpp>
 #include <dev/HTU20D.hpp>
@@ -67,7 +67,10 @@ static void taskPeriodicSend(void *) {
     valTemp / 100, valTemp % 100, valHum / 100, valHum % 100, x, y, z
   );
   #else
-  f->len = sprintf((char *) f->buf, "test");
+  struct timeval now;
+  gettimeofday(&now, nullptr);
+
+  f->len = sprintf((char *) f->buf, "\"sec\":%lu,\"usec\":%lu", (uint32_t) now.tv_sec, now.tv_usec);
   #endif
 
   /* Uncomment below line to specify frequency. */
@@ -217,16 +220,7 @@ static void printChannelInformation(LoRaMac &lw) {
   }
   //! [getDatarate]
 
-  //! [getTxPower]
-  int8_t power = lw.getTxPower(lw.getCurrentTxPowerIndex());
-  printf("* Default Tx: ");
-  if (power == -127) {
-    printf("unexpected value\n");
-  } else {
-    printf("%d dBm\n", power);
-  }
-  //! [getTxPower]
-
+  printf("* Default Tx index: %d\n", lw.getCurrentTxPowerIndex());
   printf(
     " - # of repetitions of unconfirmed uplink frames: %u\n",
     lw.getNumRepetitions()
