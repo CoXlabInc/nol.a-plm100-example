@@ -30,8 +30,7 @@ void setup(void) {
   printf("\n*** [PLM100] LPP Sender ***\n");
 
   SX1276.begin();
-  SX1276.setDataRate(Radio::SF7);
-  SX1276.setCodingRate(Radio::CR_4_5);
+  SX1276.setRadio(Radio::SF7, Radio::BW_125kHz, Radio::CR_4_5);
   SX1276.setTxPower(14);
   SX1276.setChannel(917500000);
 

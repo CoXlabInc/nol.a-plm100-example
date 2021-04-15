@@ -78,18 +78,10 @@ static void appStart() {
   /* All parameters are specified. */
 
   if (modem == 0) {
-    SX1276.setModemLoRa();
-    SX1276.setDataRate(sf);
-    SX1276.setCodingRate(cr);
-    SX1276.setBandwidth(bw);
-    SX1276.setIQMode(iq);
+    SX1276.setRadio(sf, bw, cr, true, iq);
     SX1276.setSyncword(syncword);
   } else {
-    SX1276.setModemFsk();
-    SX1276.setDataRate(50000);
-    SX1276.setBandwidth(50000);
-    SX1276.setAfcBandwidth(83333);
-    SX1276.setFdev(25000);
+    SX1276.setRadio(50000, 50000, 83333, 25000);
   }
 
   SX1276.setChannel(freq);
