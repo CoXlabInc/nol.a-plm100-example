@@ -11,7 +11,7 @@ Radio::LoRaSF_t sf = Radio::SF7;
 Radio::LoRaCR_t cr = Radio::CR_4_5;
 Radio::LoRaBW_t bw = Radio::BW_125kHz;
 int8_t txPower = 14;
-bool iq = true;
+bool iqInverted = false;
 uint8_t syncword = 0x12;
 uint32_t freq = 921700000;
 bool packetMode = true;
@@ -78,7 +78,7 @@ static void appStart() {
   /* All parameters are specified. */
 
   if (modem == 0) {
-    SX1276.setRadio(sf, bw, cr, true, iq);
+    SX1276.setRadio(sf, bw, cr, true, iqInverted);
     SX1276.setSyncword(syncword);
   } else {
     SX1276.setRadio(50000, 50000, 83333, 25000);
@@ -179,9 +179,10 @@ static void askIQ() {
 static void inputIQ(SerialPort &) {
   if (strlen(buf) == 0 || strcmp(buf, "1") == 0) {
     printf("* Normal selected.\n");
+    iqInverted = false;
   } else if (strcmp(buf, "2") == 0) {
-    printf("* inverted selected.\n");
-    iq = false;
+    printf("* Inverted selected.\n");
+    iqInverted = true;
   } else {
     printf("* Unknown IQ mode\n");
     askIQ();
