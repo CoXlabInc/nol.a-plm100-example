@@ -392,38 +392,15 @@ static void eventLoRaWANDeviceTimeAnswered(
 }
 //! [How to use onDeviceTimeAnswered callback]
 
-//! [How to use onDeviceModeConfigured callback]
-static void eventLoRaWANDeviceModeConfigured(LoRaMac &lw, bool success, LoRaMac::DeviceClass_t newClass) {
-  if (success) {
-    printf("* LoRaWAN DeviceMode configured to ");
-    if (newClass == LoRaMac::CLASS_A) {
-      printf("A");
-    } else if (newClass == LoRaMac::CLASS_C) {
-      printf("C");
-    } else {
-      printf("unknown");
-    }
-    printf(" by the network.\n");
-  } else {
-    printf("* LoRaWAN network server is not responsing DeviceModeConf.\n");
-  }
-}
-//! [How to use onDeviceModeConfigured callback]
-
-static void eventLoRaWANDeviceModeIndSent(LoRaMac &lw, LoRaMac::DeviceClass_t newClass) {
-  printf("* LoRaWAN DeviceModeInd sent. [0x%02X]\n", (uint8_t) newClass);
-}
-
 static void eventButtonPressed() {
   printf("* Button pressed:\n");
 
   error_t err;
   if (LoRaWAN.getDeviceClass() == LoRaMac::CLASS_A) {
-    printf("- Change class A to C:");
-    err = LoRaWAN.setDeviceClass(LoRaMac::CLASS_C, true, eventLoRaWANDeviceModeIndSent);
+    err = LoRaWAN.setDeviceClass(LoRaMac::CLASS_C);
   } else {
     printf("- Change class C to A:");
-    err = LoRaWAN.setDeviceClass(LoRaMac::CLASS_A, true, eventLoRaWANDeviceModeIndSent);
+    err = LoRaWAN.setDeviceClass(LoRaMac::CLASS_A);
   }
 
   printf("%d\n", err);
@@ -532,8 +509,6 @@ void setup() {
   //! [How to set onDeviceTimeAnswered callback]
   LoRaWAN.onDeviceTimeAnswered(eventLoRaWANDeviceTimeAnswered, &System);
   //! [How to set onDeviceTimeAnswered callback]
-
-  LoRaWAN.onDeviceModeConfigured(eventLoRaWANDeviceModeConfigured);
 
   LoRaWAN.onLinkADRReqReceived(eventLoRaWANLinkADRReqReceived);
   LoRaWAN.onLinkADRAnsSent(eventLoRaWANLinkADRAnsSent);
