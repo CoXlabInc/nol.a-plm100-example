@@ -37,7 +37,7 @@ enum MsgType_t {
 static void initState() {
   timerTimeout.stop();
   if (reassemblyBitmap) {
-    delete reassemblyBitmap;
+    delete[] reassemblyBitmap;
     reassemblyBitmap = nullptr;
   }
   reassemblyBitmapLength = 0;
